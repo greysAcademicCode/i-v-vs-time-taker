@@ -16,7 +16,7 @@ if cmd_subfolder not in sys.path:
     sys.path.insert(0, cmd_subfolder)
 
 try:
-    from pygrey.gpib import gpib
+    import gpib
     gotGPIB = True
 except:
     gotGPIB = False
