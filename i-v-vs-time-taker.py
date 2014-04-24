@@ -359,9 +359,11 @@ class MainWindow(QMainWindow):
         
     def handleShutter(self):
         try:
-            self.k.write(":source2:ttl:level 7")
+            self.k.write(":source2:bsize 4")
             time.sleep (3)
-            self.k.write(":source2:ttl:level 0")
+            self.k.write(":source2:ttl 15")
+            time.sleep (3)
+            self.k.write(":source2:ttl 0")
         except:
             self.ui.statusbar.showMessage("Error: Not connected",self.messageDuration)
 
