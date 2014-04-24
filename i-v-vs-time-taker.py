@@ -358,12 +358,15 @@ class MainWindow(QMainWindow):
         #self.restoreState(self.settings.value('guiState').toByteArray())
         
     def handleShutter(self):
+        shutterOnValue = '14'
+        shutterOffValue = '15'
         try:
-            self.k.write(":source2:bsize 4")
-            time.sleep (3)
-            self.k.write(":source2:ttl 15")
-            time.sleep (3)
-            self.k.write(":source2:ttl 0")
+            self.k.task_queue.put(('ask',(':source2:ttl:actual?',)))
+            outStatus = self.k.done_queue.get()
+            if outStatus == shutterOnValue:
+                self.k.write(":source2:ttl " + shutterOffValue)
+            else:
+                self.k.write(":source2:ttl " + shutterOnValue)
         except:
             self.ui.statusbar.showMessage("Error: Not connected",self.messageDuration)
 
