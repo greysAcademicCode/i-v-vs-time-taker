@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'ivSweeper.ui'
 #
-# Created: Tue Feb  4 15:46:34 2014
+# Created: Wed Apr 23 18:50:16 2014
 #      by: PyQt4 UI code generator 4.10.2
 #
 # WARNING! All changes made in this file will be lost!
@@ -46,7 +46,7 @@ class Ui_IVSweeper(object):
         self.addressField.setObjectName(_fromUtf8("addressField"))
         self.sweepButton = QtGui.QPushButton(self.centralwidget)
         self.sweepButton.setEnabled(False)
-        self.sweepButton.setGeometry(QtCore.QRect(470, 330, 151, 27))
+        self.sweepButton.setGeometry(QtCore.QRect(470, 320, 151, 30))
         self.sweepButton.setCheckable(False)
         self.sweepButton.setAutoDefault(False)
         self.sweepButton.setObjectName(_fromUtf8("sweepButton"))
@@ -175,7 +175,7 @@ class Ui_IVSweeper(object):
         self.sourceIRadio.setGeometry(QtCore.QRect(90, 20, 71, 22))
         self.sourceIRadio.setObjectName(_fromUtf8("sourceIRadio"))
         self.outputCheck = QtGui.QCheckBox(self.centralwidget)
-        self.outputCheck.setGeometry(QtCore.QRect(480, 290, 141, 22))
+        self.outputCheck.setGeometry(QtCore.QRect(410, 290, 121, 22))
         self.outputCheck.setObjectName(_fromUtf8("outputCheck"))
         self.progress = QtGui.QProgressBar(self.centralwidget)
         self.progress.setGeometry(QtCore.QRect(10, 330, 431, 23))
@@ -195,8 +195,15 @@ class Ui_IVSweeper(object):
         self.scanRecoverySpin.setMaximum(1000000000.0)
         self.scanRecoverySpin.setObjectName(_fromUtf8("scanRecoverySpin"))
         self.displayBlankCheck = QtGui.QCheckBox(self.centralwidget)
-        self.displayBlankCheck.setGeometry(QtCore.QRect(480, 270, 121, 22))
+        self.displayBlankCheck.setGeometry(QtCore.QRect(410, 270, 120, 22))
         self.displayBlankCheck.setObjectName(_fromUtf8("displayBlankCheck"))
+        self.checkBox = QtGui.QCheckBox(self.centralwidget)
+        self.checkBox.setGeometry(QtCore.QRect(290, 270, 131, 31))
+        self.checkBox.setObjectName(_fromUtf8("checkBox"))
+        self.shutterButton = QtGui.QPushButton(self.centralwidget)
+        self.shutterButton.setEnabled(True)
+        self.shutterButton.setGeometry(QtCore.QRect(540, 260, 97, 51))
+        self.shutterButton.setObjectName(_fromUtf8("shutterButton"))
         IVSweeper.setCentralWidget(self.centralwidget)
         self.menubar = QtGui.QMenuBar(IVSweeper)
         self.menubar.setGeometry(QtCore.QRect(0, 0, 652, 27))
@@ -274,6 +281,10 @@ class Ui_IVSweeper(object):
         self.scanRecoverySpin.setSuffix(_translate("IVSweeper", " s", None))
         self.displayBlankCheck.setToolTip(_translate("IVSweeper", "This blanks the Keithley\'s display during measurement, allowing for a slight increase in measurement speed", None))
         self.displayBlankCheck.setText(_translate("IVSweeper", "Blank Display", None))
+        self.checkBox.setText(_translate("IVSweeper", "Enable Live \n"
+"Data Plot", None))
+        self.shutterButton.setText(_translate("IVSweeper", "Toggle\n"
+"Shutter", None))
         self.menuGreyRules.setTitle(_translate("IVSweeper", "File", None))
         self.actionQuit.setText(_translate("IVSweeper", "Quit", None))
         self.actionRun_Test_Code.setText(_translate("IVSweeper", "Run Test Code", None))

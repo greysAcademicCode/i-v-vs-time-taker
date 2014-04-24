@@ -75,9 +75,9 @@
     <property name="geometry">
      <rect>
       <x>470</x>
-      <y>330</y>
+      <y>320</y>
       <width>151</width>
-      <height>27</height>
+      <height>30</height>
      </rect>
     </property>
     <property name="text">
@@ -624,9 +624,9 @@
    <widget class="QCheckBox" name="outputCheck">
     <property name="geometry">
      <rect>
-      <x>480</x>
+      <x>410</x>
       <y>290</y>
-      <width>141</width>
+      <width>121</width>
       <height>22</height>
      </rect>
     </property>
@@ -701,9 +701,9 @@
    <widget class="QCheckBox" name="displayBlankCheck">
     <property name="geometry">
      <rect>
-      <x>480</x>
+      <x>410</x>
       <y>270</y>
-      <width>121</width>
+      <width>120</width>
       <height>22</height>
      </rect>
     </property>
@@ -717,8 +717,8 @@
    <widget class="QCheckBox" name="checkBox">
     <property name="geometry">
      <rect>
-      <x>310</x>
-      <y>280</y>
+      <x>290</x>
+      <y>270</y>
       <width>131</width>
       <height>31</height>
      </rect>
@@ -726,6 +726,23 @@
     <property name="text">
      <string>Enable Live 
 Data Plot</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="shutterButton">
+    <property name="enabled">
+     <bool>true</bool>
+    </property>
+    <property name="geometry">
+     <rect>
+      <x>540</x>
+      <y>260</y>
+      <width>97</width>
+      <height>51</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Toggle
+Shutter</string>
     </property>
    </widget>
   </widget>
