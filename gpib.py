@@ -15,12 +15,9 @@ use the non-queue mode if calling from a clientwith only one thread
 in queue mode:
 the user will instantiate the class and then interact with the task_queue and done_queue objects which carry instructions to a thread-save visa object
 this is done by entering the visa function name and the arguments into the task_queue object and retrieving results from done_queue later:
-example:
 from pygrey.gpib import gpib
-k = gpib('GPIB0::23',useQueues=True)
-k.task_queue.put('ask',(':read?',))
-time.sleep(0.5)
-print k.task_queue.get()
+k.task_queue.put(('ask',('*idn?',)))
+print k.done_queue.get()
 k.task_queue.put('STOP') <-- this cleans things up properly
 in non-queue mode:
 the user will interact with the visa v object created during initialization
