@@ -407,9 +407,9 @@ class MainWindow(QMainWindow):
 
     def testArea(self):
         print('Running test code now')
-
+        assumedArea = 0.4;
         t = time.time()
-        powerTime = 30 #seconds
+        powerTime = float(self.ui.totalTimeSpin.value()) #seconds
         initialGuess = 0.7 #volts
         self.ui.outputCheck.setChecked(True)
         oldSpeedIndex = self.ui.speedCombo.currentIndex()
@@ -417,14 +417,13 @@ class MainWindow(QMainWindow):
         toc = 0
         while toc < powerTime:
             optResults = optimize.minimize(self.invPower,initialGuess)
-            print "Optimized! Mpp Voltage:"
-            print optResults.x[0]
-            #TODO: might need to set voltage here
-            time.sleep(2)
-            #self.k.task_queue.put(('read_raw',()))
-            #data = qBinRead(self.k.done_queue)        
+            self.k.write(':source:'+self.source+':range {0:.5f}'.format(optResults.x[0]))
+            print "Optimized! Mpp Voltage: {0:.3f}".format(optResults.x[0])
+            time.sleep(5)
+            self.k.task_queue.put(('read_raw',()))
+            data = qBinRead(self.k.done_queue)        
             #vi = (data[0], data[1], data[1]*data[0]*1000/.4*-1)
-            #print vi
+            print 'Max Power: {0:.3f}% '.format(data[0]*data[1]*1000*-1/assumedArea)
             toc = time.time() - t
         self.ui.outputCheck.setChecked(False)
         self.ui.speedCombo.setCurrentIndex(oldSpeedIndex)
