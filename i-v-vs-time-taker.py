@@ -40,6 +40,7 @@ import struct
 
 #read one measurement value from queue
 def qBinRead(q):
+    print 'bin read called'
     nElements = 4 #this needs to match the :format:elements setting in the device or else you're gonna have a bad time
     formatString = '>{0}f'.format(nElements)
     #this is raw binary data form the instrument
@@ -204,7 +205,7 @@ class collectDataThread(QThread):
 
     def run(self):
         data = [None]*self.needToCollect
-        
+        print range(self.needToCollect)
         for i in range(self.needToCollect): 
             data[i] = qBinRead(q)
 
