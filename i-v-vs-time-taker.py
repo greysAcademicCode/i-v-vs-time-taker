@@ -45,14 +45,14 @@ def qBinRead(q):
     formatString = '>{0}f'.format(nElements)
     #this is raw binary data form the instrument
     qItem = q.get()
-    
+
     #here we unpack the binary data from the instrument, the first two bytes are the header, '#0' we ignore those.
     #Next we have each of our four measurement values in IEEE-754 single precision data format (32 data bits)
     #1st is time 2nd is voltage, 3rd is current, 4th is the status info 
     data = (struct.unpack(formatString,qItem[2:nElements*4+2]))
-    
+
     return (data)
-    
+
 
 
 #here we have the thread that generates the commands that advance the source value during the sweep
@@ -306,7 +306,7 @@ class SelectDialog(QDialog):
         selectedInstrument = self.ui.instrumentList.selectedItems()[0].text()
         if selectedInstrument == "None found":
             return
-        
+
         self.mainWindow.ui.addressField.setText(selectedInstrument)
         self.mainWindow.initialConnect()
 
@@ -367,23 +367,31 @@ class MainWindow(QMainWindow):
 
         #TODO: load state here
         #self.restoreState(self.settings.value('guiState').toByteArray())
-        
-    
-        
-    
+
+
+
+
     #return -1 * the power of the device at a given voltage or current
-    def invPower(self,independantVariable):
-        
+    def invPower(self,request):
+        request = request[0]
+        #TODO: assume voltage for now, eventually this should support current as the independant variable too
+
+        if request < 0:
+            request = 0
+        if request > 1.2:
+            request = 1.2
+
         try:
-            self.k.write(':source:'+self.source+':range {0:.5f}'.format(independantVariable))
-            self.q.put(('read_raw',()))
+            print request
+            self.k.write(':source:'+self.source+':range {0:.5f}'.format(request))
+            self.k.task_queue.put(('read_raw',()))
             data = qBinRead(self.k.done_queue)
-            return (data[0]*data[1]*-1)
+            return (data[0]*data[1])
         except:
             self.ui.statusbar.showMessage("Error: Not connected",self.messageDuration);
             return np.nan
-        
-        
+
+
     def handleShutter(self):
         shutterOnValue = '14'
         shutterOffValue = '15'
@@ -399,19 +407,28 @@ class MainWindow(QMainWindow):
 
     def testArea(self):
         print('Running test code now')
-        
+
         t = time.time()
-        powerTime = 15#seconds
-        vMaxGuess = 0.7
+        powerTime = 30 #seconds
+        initialGuess = 0.7 #volts
+        self.ui.outputCheck.setChecked(True)
+        oldSpeedIndex = self.ui.speedCombo.currentIndex()
+        self.ui.speedCombo.setCurrentIndex(2)
         toc = 0
         while toc < powerTime:
-            optimize.minimize(self.invPower,vMaxGuess)
-            self.k.task_queue.put(('read_raw',()))
-            data = qBinRead(self.k.done_queue)        
-            vi = (data[0], data[1], data[1]*data[0]*1000)
-            print vi
+            optResults = optimize.minimize(self.invPower,initialGuess)
+            print "Optimized! Mpp Voltage:"
+            print optResults.x[0]
+            #TODO: might need to set voltage here
+            time.sleep(2)
+            #self.k.task_queue.put(('read_raw',()))
+            #data = qBinRead(self.k.done_queue)        
+            #vi = (data[0], data[1], data[1]*data[0]*1000/.4*-1)
+            #print vi
             toc = time.time() - t
-        
+        self.ui.outputCheck.setChecked(False)
+        self.ui.speedCombo.setCurrentIndex(oldSpeedIndex)
+
         #x = np.random.randn(10000)
         #np.hist(x, 100)        
 
@@ -555,68 +572,68 @@ class MainWindow(QMainWindow):
     def initialSetup(self):
         try:
             self.collectDataThread  = collectDataThread(self.k.done_queue)
-    
+
             #create the post processing thread and give it the keithley's done queue so that it can pull data from it
             self.postProcessThread = postProcessThread()
-    
+
             #create the measurement thread and give it the keithley's task queue so that it can issue commands to it
             self.measureThread = measureThread(self.k.task_queue)
-    
+
             #create the sweep thread and give it the keithley's task queue so that it can issue commands to it
             self.sweepThread = sweepThread(self.k.task_queue)
-    
+
             self.measureThread.measureDone.connect(self.collectDataThread.catchPointNumber)
             self.collectDataThread.readyToCollect.connect(self.collectDataThread.start)
-    
+
             #now connect  all the signals associated with these threads:
             #update the progress bar during the sweep
             self.sweepThread.updateProgress.connect(self.updateProgress)
-    
+
             #update gui and shut off the output only when the last data point has been collected properly
             self.collectDataThread.dataCollectionDone.connect(self.doSweepComplete)
-    
+
             self.collectDataThread.postData.connect(self.postProcessThread.acceptNewData)
-    
+
             self.postProcessThread.readyToProcess.connect(self.postProcessThread.start)
-    
+
             #self.postProcessThread.postProcessingDone.connect(self.postResults)
             self.postProcessThread.postProcessingDone.connect(self.results.catchUpdate)
-    
+
             #tell the measurement to stop when the sweep is done
             self.sweepThread.sweepComplete.connect(self.measureThread.timeToDie)
-    
+
             #give the new user entered sweep variables to the sweep thread
             self.sweepVaribles.connect(self.sweepThread.updateVariables)
-    
+
             #kill sweep early on user request
             self.killSweepNow.connect(self.sweepThread.earlyKill)
             self.killSweepNow.connect(self.collectDataThread.earlyKill)
-    
+
             self.k.write(":format:data sreal")
             self.k.write(':system:beeper:state 0')
-    
+
             #always measure current and voltage
             self.k.write(':sense:function:concurrent on')
-    
+
             self.setMode() #sets output mode (current or voltage)
-    
+
             self.setTerminals()
             self.setWires()
             self.k.write(":trace:feed:control never") #don't ever store data in buffer
             self.setZero()
-    
+
             self.k.write(':sense:average:tcontrol repeat') #repeating averaging (not moving)
             self.setAverage()
-    
+
             self.k.write(':format:elements time,voltage,current,status') #set data measurement elements
             self.k.write(":source:delay 0")
             self.k.write(':trigger:delay 0') 
-    
+
             self.setOutput()
             return True
         except:
             return False
-        
+
 
 
     #do these things right after the user chooses on an instrument address
@@ -625,22 +642,22 @@ class MainWindow(QMainWindow):
         #this prevents the user from hammering this function through the GUI
         self.ui.sweepButton.setFocus()
         self.ui.sweepButton.setEnabled(False)
-        
+
         instrumentAddress = str(self.ui.addressField.text())
 
         try:
             #now that the user has selected an address for the keithley, let's connect to it. we'll use the thread safe version of the visa/gpib interface since we have multiple threads here
             self.k = gpib(instrumentAddress,useQueues=True)
-            
+
             self.k.task_queue.put(('clear',()))
             self.k.write(':abort')
             self.k.write("*rst")
             self.k.write('*cls')
             self.k.task_queue.put(('ask',('*idn?',)))
             ident = self.k.done_queue.get()
-            
+
             self.ui.statusbar.showMessage("Connected to " + ident,self.messageDuration)
-    
+
             #silly check here, if the instrument returned an identification string larger than 30 characters
             #assume it's okay to perform a sweep
             if len(ident) > 30:
