@@ -40,7 +40,7 @@ import struct
 
 #read one measurement value from queue
 def qBinRead(q):
-    print 'bin read called'
+
     nElements = 4 #this needs to match the :format:elements setting in the device or else you're gonna have a bad time
     formatString = '>{0}f'.format(nElements)
     #this is raw binary data form the instrument
@@ -400,20 +400,16 @@ class MainWindow(QMainWindow):
     def testArea(self):
         print('Running test code now')
         
-
-        
-        #self.ui.statusbar.showMessage("Connection aborted switch to",self.messageDuration)
-        
-        #t = time.time()
-        #powerTime = 15#seconds
-        #vMaxGuess = 0.7
-        #while toc < powerTime:
-            #optimize.minimize(self.InvPower,vMaxGuess)
-            #self.q.put(('read_raw',()))
-            #data = qBinRead(self.k.done_queue)        
-            #vi = (data[0], data[1], data[1]*data[0]*1000)
-            #print vi
-            #toc = time.time() - t
+        t = time.time()
+        powerTime = 15#seconds
+        vMaxGuess = 0.7
+        while toc < powerTime:
+            optimize.minimize(self.InvPower,vMaxGuess)
+            self.q.put(('read_raw',()))
+            data = qBinRead(self.k.done_queue)        
+            vi = (data[0], data[1], data[1]*data[0]*1000)
+            print vi
+            toc = time.time() - t
         
         #x = np.random.randn(10000)
         #np.hist(x, 100)        
