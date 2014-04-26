@@ -32,9 +32,26 @@ from scipy.special import lambertw
 from scipy.optimize import curve_fit
 from collections import OrderedDict
 
+from scipy import optimize
+
 import numpy as np
 import time
 import struct
+
+#read one measurement value from queue
+def qBinRead(q):
+    nElements = 4 #this needs to match the :format:elements setting in the device or else you're gonna have a bad time
+    formatString = '>{0}f'.format(nElements)
+    #this is raw binary data form the instrument
+    qItem = q.get()
+    
+    #here we unpack the binary data from the instrument, the first two bytes are the header, '#0' we ignore those.
+    #Next we have each of our four measurement values in IEEE-754 single precision data format (32 data bits)
+    #1st is time 2nd is voltage, 3rd is current, 4th is the status info 
+    data = (struct.unpack(formatString,qItem[2:nElements*4+2]))
+    
+    return (data)
+    
 
 
 #here we have the thread that generates the commands that advance the source value during the sweep
@@ -92,7 +109,7 @@ class measureThread(QThread):
         while not self.finishUpNow: #keep spamming read requests unless it's time to die (sweep is complete)
             time.sleep(0.001)#only do the queue check only every millisecond to prevent pegging the CPU in this loop
             if self.q.qsize()<5: #keep ~5 measurement requests in the task queue at all times, this is a small enough number to keep things snappy on termination, and large enough to ensure a measurement request is always queued
-                self.q.put(('read',()))
+                self.q.put(('read',()))#TODO: is read_raw better here?
                 dataPoints = dataPoints + 1
         self.finishUpNow = False
         self.measureDone.emit(dataPoints)
@@ -186,18 +203,11 @@ class collectDataThread(QThread):
 
     def run(self):
         data = [None]*self.needToCollect
-        nElements = 4 #this needs to match the :format:elements setting in the device or else you're gonna have a bad time
-        formatString = '>{0}f'.format(nElements)
-        for i in range(self.needToCollect):
-            #this is raw binary data form the instrument
-            qItem = self.q.get()
+        
+        for i in range(self.needToCollect): 
+            data[i] = qBinRead(q)
 
-            #here we unpack the binary data from the instrument, the first two bytes are the header, '#0' we ignore those.
-            #Next we have each of our four measurement values in IEEE-754 single precision data format (32 data bits)
-            #1st is time 2nd is voltage, 3rd is current, 4th is the status info 
-            data[i] = (struct.unpack(formatString,qItem[2:nElements*4+2]))
-            #data[i] = (struct.unpack(formatString,qItem[0:nElements*4]))
-
+        #signal that we're done
         self.dataCollectionDone.emit()
 
         if (len(data) >2) and not self.prematureTermination:
@@ -357,6 +367,22 @@ class MainWindow(QMainWindow):
         #TODO: load state here
         #self.restoreState(self.settings.value('guiState').toByteArray())
         
+    
+        
+    
+    #return -1 * the power of the device at a given voltage or current
+    def invPower(self,independantVariable):
+        
+        try:
+            self.k.write(':source:'+self.source+':range {0:.5f}'.format(independantVariable))
+            self.q.put(('read_raw',()))
+            data = qBinRead(self.k.done_queue)
+            return (data[0]*data[1]*-1)
+        except:
+            self.ui.statusbar.showMessage("Error: Not connected",self.messageDuration);
+            return np.nan
+        
+        
     def handleShutter(self):
         shutterOnValue = '14'
         shutterOffValue = '15'
@@ -372,8 +398,19 @@ class MainWindow(QMainWindow):
 
     def testArea(self):
         print('Running test code now')
-        x = np.random.randn(10000)
-        np.hist(x, 100)        
+        t = time.time()
+        powerTime = 15#seconds
+        vMaxGuess = 0.7
+        while toc < powerTime:
+            optimize.minimize(self.InvPower,vMaxGuess)
+            self.q.put(('read_raw',()))
+            data = qBinRead(self.k.done_queue)        
+            vi = (data[0], data[1], data[1]*data[0]*1000)
+            print vi
+            toc = time.time() - t
+        
+        #x = np.random.randn(10000)
+        #np.hist(x, 100)        
 
     def closeEvent(self,event):
         #TODO: save state here
