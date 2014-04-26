@@ -406,7 +406,7 @@ class MainWindow(QMainWindow):
         toc = 0
         while toc < powerTime:
             optimize.minimize(self.invPower,vMaxGuess)
-            self.q.put(('read_raw',()))
+            self.k.task_queue.put(('read_raw',()))
             data = qBinRead(self.k.done_queue)        
             vi = (data[0], data[1], data[1]*data[0]*1000)
             print vi
