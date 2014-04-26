@@ -615,9 +615,9 @@ class MainWindow(QMainWindow):
             self.k.write(':trigger:delay 0') 
     
             self.setOutput()
-            return true
+            return True
         except:
-            return false
+            return False
         
 
 
@@ -648,19 +648,22 @@ class MainWindow(QMainWindow):
             if len(ident) > 30:
                 self.k.task_queue.put(('ask',(':system:mep:state?',)))
                 isSCPI = self.k.done_queue.get()
-                #print isSCPI
-                msgBox = QMessageBox()
-                msgBox.setText(isSCPI);
-                msgBox.exec_();                
-                if self.initialSetup():
-                    self.ui.sweepButton.setEnabled(True)
-                    self.ui.findButton.setDefault(False)
-                    self.ui.sweepButton.setFocus()
-                    self.ui.sweepButton.setDefault(True)
-                    self.ui.addressField.setStyleSheet("QLineEdit { background-color : green;}")
+                if isSCPI == '0':
+                    if self.initialSetup():
+                        self.ui.sweepButton.setEnabled(True)
+                        self.ui.findButton.setDefault(False)
+                        self.ui.sweepButton.setFocus()
+                        self.ui.sweepButton.setDefault(True)
+                        self.ui.addressField.setStyleSheet("QLineEdit { background-color : green;}")
+                    else:
+                        self.ui.addressField.setStyleSheet("QLineEdit { background-color : red;}")
+                        self.ui.statusbar.showMessage("Setup failed")                      
                 else:
                     self.ui.addressField.setStyleSheet("QLineEdit { background-color : red;}")
-                    self.ui.statusbar.showMessage("Setup failed")                    
+                    self.ui.statusbar.showMessage("SCPI comms mode detected")                        
+                    msgBox = QMessageBox()
+                    msgBox.setText("Please switch instrument to 488.1 mode\n~The Management");
+                    msgBox.exec_();
             else:
                 self.ui.addressField.setStyleSheet("QLineEdit { background-color : red;}")
                 self.ui.statusbar.showMessage("Connection failed")
