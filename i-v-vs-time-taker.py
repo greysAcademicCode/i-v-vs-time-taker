@@ -554,6 +554,72 @@ class MainWindow(QMainWindow):
             else:#sweep dealy tiemrs are not running, we're mid-sweep, send the kill signal
                 self.killSweepNow.emit()
 
+    def initialSetup(self):
+        try:
+            self.collectDataThread  = collectDataThread(self.k.done_queue)
+    
+            #create the post processing thread and give it the keithley's done queue so that it can pull data from it
+            self.postProcessThread = postProcessThread()
+    
+            #create the measurement thread and give it the keithley's task queue so that it can issue commands to it
+            self.measureThread = measureThread(self.k.task_queue)
+    
+            #create the sweep thread and give it the keithley's task queue so that it can issue commands to it
+            self.sweepThread = sweepThread(self.k.task_queue)
+    
+            self.measureThread.measureDone.connect(self.collectDataThread.catchPointNumber)
+            self.collectDataThread.readyToCollect.connect(self.collectDataThread.start)
+    
+            #now connect  all the signals associated with these threads:
+            #update the progress bar during the sweep
+            self.sweepThread.updateProgress.connect(self.updateProgress)
+    
+            #update gui and shut off the output only when the last data point has been collected properly
+            self.collectDataThread.dataCollectionDone.connect(self.doSweepComplete)
+    
+            self.collectDataThread.postData.connect(self.postProcessThread.acceptNewData)
+    
+            self.postProcessThread.readyToProcess.connect(self.postProcessThread.start)
+    
+            #self.postProcessThread.postProcessingDone.connect(self.postResults)
+            self.postProcessThread.postProcessingDone.connect(self.results.catchUpdate)
+    
+            #tell the measurement to stop when the sweep is done
+            self.sweepThread.sweepComplete.connect(self.measureThread.timeToDie)
+    
+            #give the new user entered sweep variables to the sweep thread
+            self.sweepVaribles.connect(self.sweepThread.updateVariables)
+    
+            #kill sweep early on user request
+            self.killSweepNow.connect(self.sweepThread.earlyKill)
+            self.killSweepNow.connect(self.collectDataThread.earlyKill)
+    
+            self.k.write(":format:data sreal")
+            self.k.write(':system:beeper:state 0')
+    
+            #always measure current and voltage
+            self.k.write(':sense:function:concurrent on')
+    
+            self.setMode() #sets output mode (current or voltage)
+    
+            self.setTerminals()
+            self.setWires()
+            self.k.write(":trace:feed:control never") #don't ever store data in buffer
+            self.setZero()
+    
+            self.k.write(':sense:average:tcontrol repeat') #repeating averaging (not moving)
+            self.setAverage()
+    
+            self.k.write(':format:elements time,voltage,current,status') #set data measurement elements
+            self.k.write(":source:delay 0")
+            self.k.write(':trigger:delay 0') 
+    
+            self.setOutput()
+            return true
+        except:
+            return false
+        
+
 
     #do these things right after the user chooses on an instrument address
     def initialConnect(self):
@@ -568,90 +634,33 @@ class MainWindow(QMainWindow):
             #now that the user has selected an address for the keithley, let's connect to it. we'll use the thread safe version of the visa/gpib interface since we have multiple threads here
             self.k = gpib(instrumentAddress,useQueues=True)
             
-            self.k.task_queue.put(('ask',(':system:mep:state?',)))
-            isSCPI = self.k.done_queue.get()
-            print isSCPI
-            #msgBox = QMessageBox()
-            #msgBox.setText("The document has been modified.");
-            #msgBox.exec_();
-    
-            self.collectDataThread  = collectDataThread(self.k.done_queue)
-
-            #create the post processing thread and give it the keithley's done queue so that it can pull data from it
-            self.postProcessThread = postProcessThread()
-
-            #create the measurement thread and give it the keithley's task queue so that it can issue commands to it
-            self.measureThread = measureThread(self.k.task_queue)
-
-            #create the sweep thread and give it the keithley's task queue so that it can issue commands to it
-            self.sweepThread = sweepThread(self.k.task_queue)
-
-            self.measureThread.measureDone.connect(self.collectDataThread.catchPointNumber)
-            self.collectDataThread.readyToCollect.connect(self.collectDataThread.start)
-
-            #now connect  all the signals associated with these threads:
-            #update the progress bar during the sweep
-            self.sweepThread.updateProgress.connect(self.updateProgress)
-
-            #update gui and shut off the output only when the last data point has been collected properly
-            self.collectDataThread.dataCollectionDone.connect(self.doSweepComplete)
-
-            self.collectDataThread.postData.connect(self.postProcessThread.acceptNewData)
-
-            self.postProcessThread.readyToProcess.connect(self.postProcessThread.start)
-
-            #self.postProcessThread.postProcessingDone.connect(self.postResults)
-            self.postProcessThread.postProcessingDone.connect(self.results.catchUpdate)
-
-            #tell the measurement to stop when the sweep is done
-            self.sweepThread.sweepComplete.connect(self.measureThread.timeToDie)
-
-            #give the new user entered sweep variables to the sweep thread
-            self.sweepVaribles.connect(self.sweepThread.updateVariables)
-
-            #kill sweep early on user request
-            self.killSweepNow.connect(self.sweepThread.earlyKill)
-            self.killSweepNow.connect(self.collectDataThread.earlyKill)
-
             self.k.task_queue.put(('clear',()))
             self.k.write(':abort')
             self.k.write("*rst")
             self.k.write('*cls')
             self.k.task_queue.put(('ask',('*idn?',)))
-            ident = self.k.done_queue.get()            
-
+            ident = self.k.done_queue.get()
+            
             self.ui.statusbar.showMessage("Connected to " + ident,self.messageDuration)
-
-            self.k.write(":format:data sreal")
-            self.k.write(':system:beeper:state 0')
-
-            #always measure current and voltage
-            self.k.write(':sense:function:concurrent on')
-
-            self.setMode() #sets output mode (current or voltage)
-
-            self.setTerminals()
-            self.setWires()
-            self.k.write(":trace:feed:control never") #don't ever store data in buffer
-            self.setZero()
-
-            self.k.write(':sense:average:tcontrol repeat') #repeating averaging (not moving)
-            self.setAverage()
-
-            self.k.write(':format:elements time,voltage,current,status') #set data measurement elements
-            self.k.write(":source:delay 0")
-            self.k.write(':trigger:delay 0') 
-
-            self.setOutput()
-
+    
             #silly check here, if the instrument returned an identification string larger than 30 characters
             #assume it's okay to perform a sweep
             if len(ident) > 30:
-                self.ui.sweepButton.setEnabled(True)
-                self.ui.findButton.setDefault(False)
-                self.ui.sweepButton.setFocus()
-                self.ui.sweepButton.setDefault(True)
-                self.ui.addressField.setStyleSheet("QLineEdit { background-color : green;}")
+                self.k.task_queue.put(('ask',(':system:mep:state?',)))
+                isSCPI = self.k.done_queue.get()
+                #print isSCPI
+                msgBox = QMessageBox()
+                msgBox.setText(isSCPI);
+                msgBox.exec_();                
+                if self.initialSetup():
+                    self.ui.sweepButton.setEnabled(True)
+                    self.ui.findButton.setDefault(False)
+                    self.ui.sweepButton.setFocus()
+                    self.ui.sweepButton.setDefault(True)
+                    self.ui.addressField.setStyleSheet("QLineEdit { background-color : green;}")
+                else:
+                    self.ui.addressField.setStyleSheet("QLineEdit { background-color : red;}")
+                    self.ui.statusbar.showMessage("Setup failed")                    
             else:
                 self.ui.addressField.setStyleSheet("QLineEdit { background-color : red;}")
                 self.ui.statusbar.showMessage("Connection failed")
