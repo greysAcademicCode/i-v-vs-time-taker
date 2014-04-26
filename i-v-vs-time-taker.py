@@ -49,6 +49,7 @@ def qBinRead(q):
     #Next we have each of our four measurement values in IEEE-754 single precision data format (32 data bits)
     #1st is time 2nd is voltage, 3rd is current, 4th is the status info 
     data = (struct.unpack(formatString,qItem[2:nElements*4+2]))
+    print data
     
     return (data)
     
