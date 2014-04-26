@@ -403,6 +403,7 @@ class MainWindow(QMainWindow):
         t = time.time()
         powerTime = 15#seconds
         vMaxGuess = 0.7
+        toc = 0
         while toc < powerTime:
             optimize.minimize(self.InvPower,vMaxGuess)
             self.q.put(('read_raw',()))
