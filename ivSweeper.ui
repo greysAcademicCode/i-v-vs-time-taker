@@ -74,9 +74,9 @@
     </property>
     <property name="geometry">
      <rect>
-      <x>470</x>
-      <y>320</y>
-      <width>151</width>
+      <x>560</x>
+      <y>330</y>
+      <width>81</width>
       <height>30</height>
      </rect>
     </property>
@@ -363,9 +363,9 @@
      </property>
      <property name="geometry">
       <rect>
-       <x>180</x>
-       <y>90</y>
-       <width>161</width>
+       <x>190</x>
+       <y>110</y>
+       <width>131</width>
        <height>22</height>
       </rect>
      </property>
@@ -400,6 +400,19 @@
      </property>
      <property name="text">
       <string>Δ=20 ms</string>
+     </property>
+    </widget>
+    <widget class="QCheckBox" name="maxPowerCheck">
+     <property name="geometry">
+      <rect>
+       <x>190</x>
+       <y>90</y>
+       <width>111</width>
+       <height>17</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>Max Power</string>
      </property>
     </widget>
    </widget>
@@ -625,7 +638,7 @@
     <property name="geometry">
      <rect>
       <x>410</x>
-      <y>290</y>
+      <y>300</y>
       <width>121</width>
       <height>22</height>
      </rect>
@@ -639,7 +652,7 @@
      <rect>
       <x>10</x>
       <y>330</y>
-      <width>431</width>
+      <width>541</width>
       <height>23</height>
      </rect>
     </property>
@@ -717,9 +730,9 @@
    <widget class="QCheckBox" name="checkBox">
     <property name="geometry">
      <rect>
-      <x>290</x>
-      <y>270</y>
-      <width>131</width>
+      <x>310</x>
+      <y>280</y>
+      <width>91</width>
       <height>31</height>
      </rect>
     </property>
@@ -735,7 +748,7 @@ Data Plot</string>
     <property name="geometry">
      <rect>
       <x>540</x>
-      <y>260</y>
+      <y>270</y>
       <width>97</width>
       <height>51</height>
      </rect>
@@ -752,7 +765,7 @@ Shutter</string>
      <x>0</x>
      <y>0</y>
      <width>652</width>
-     <height>27</height>
+     <height>21</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuGreyRules">
