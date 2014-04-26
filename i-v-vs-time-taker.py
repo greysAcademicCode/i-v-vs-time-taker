@@ -24,7 +24,7 @@ except:
 
 import math
 from PyQt4.QtCore import QString, QThread, pyqtSignal, QTimer, QSettings
-from PyQt4.QtGui import QApplication, QDialog, QMainWindow, QFileDialog
+from PyQt4.QtGui import QApplication, QDialog, QMainWindow, QFileDialog, QMessageBox
 from selectInstrumentUI import Ui_instrumentSelection
 from ivSweeperUI import Ui_IVSweeper
 from resultsUI import Ui_results
@@ -398,16 +398,21 @@ class MainWindow(QMainWindow):
 
     def testArea(self):
         print('Running test code now')
-        t = time.time()
-        powerTime = 15#seconds
-        vMaxGuess = 0.7
-        while toc < powerTime:
-            optimize.minimize(self.InvPower,vMaxGuess)
-            self.q.put(('read_raw',()))
-            data = qBinRead(self.k.done_queue)        
-            vi = (data[0], data[1], data[1]*data[0]*1000)
-            print vi
-            toc = time.time() - t
+        
+
+        
+        #self.ui.statusbar.showMessage("Connection aborted switch to",self.messageDuration)
+        
+        #t = time.time()
+        #powerTime = 15#seconds
+        #vMaxGuess = 0.7
+        #while toc < powerTime:
+            #optimize.minimize(self.InvPower,vMaxGuess)
+            #self.q.put(('read_raw',()))
+            #data = qBinRead(self.k.done_queue)        
+            #vi = (data[0], data[1], data[1]*data[0]*1000)
+            #print vi
+            #toc = time.time() - t
         
         #x = np.random.randn(10000)
         #np.hist(x, 100)        
@@ -560,10 +565,16 @@ class MainWindow(QMainWindow):
         instrumentAddress = str(self.ui.addressField.text())
 
         try:
-            
             #now that the user has selected an address for the keithley, let's connect to it. we'll use the thread safe version of the visa/gpib interface since we have multiple threads here
             self.k = gpib(instrumentAddress,useQueues=True)
-
+            
+            self.k.task_queue.put(('ask',(':system:mep:state?',)))
+            isSCPI = self.k.done_queue.get()
+            print isSCPI
+            #msgBox = QMessageBox()
+            #msgBox.setText("The document has been modified.");
+            #msgBox.exec_();
+    
             self.collectDataThread  = collectDataThread(self.k.done_queue)
 
             #create the post processing thread and give it the keithley's done queue so that it can pull data from it
