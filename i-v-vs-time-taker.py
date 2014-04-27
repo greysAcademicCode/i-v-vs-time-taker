@@ -418,6 +418,7 @@ class MainWindow(QMainWindow):
         while toc < powerTime:
             optResults = optimize.minimize(self.invPower,initialGuess)
             self.k.write(':source:'+self.source+':range {0:.5f}'.format(optResults.x[0]))
+            self.k.write(":SYST:KEY 23") #go into local mode for live display update
             print "Optimized! Mpp Voltage: {0:.3f}".format(optResults.x[0])
             time.sleep(5)
             self.k.task_queue.put(('read_raw',()))
@@ -514,6 +515,7 @@ class MainWindow(QMainWindow):
         try:
             if self.ui.outputCheck.isChecked():
                 self.k.write(":output on")
+                self.k.write(":SYST:KEY 23") #go into local mode for live display update
             else:
                 self.k.write(":output off")
         except:
