@@ -49,13 +49,20 @@ class gpib:
                 self.task_queue = Queue()
                 self.done_queue = Queue()
                 #kickoff the worker process
-                Process(target=self._worker, args=(self.task_queue, self.done_queue)).start()
+                self.p = Process(target=self._worker, args=(self.task_queue, self.done_queue))
+                self.p.start()
             else:#non-queue mode
                 self.v = visa.instrument(self.locationString,timeout=self.timeout,chunk_size=self.chunk_size,delay=self.delay,values_format=self.values_format)
                 
     def __del__(self):
         if self.useQueues:
-            self.task_queue.put('STOP')
+            if self.p.is_alive():
+                self.task_queue.put('STOP')
+            self.p.join()
+            self.task_queue.close()
+            self.done_queue.close()
+            self.task_queue.join_thread()
+            self.done_queue.join_thread()
         else:
             if hasattr(self,'v'):
                 self.v.close()
@@ -63,17 +70,23 @@ class gpib:
     def findInstruments(self):
         return visa.get_instruments_list()
         
-    def _worker(self,inpt, output):
+    def _worker(self, inputQ, outputQ):
         #local, threadsafe instrument object created here
         v = visa.instrument(self.locationString,timeout=self.timeout,chunk_size=self.chunk_size,delay=self.delay,values_format=self.values_format) 
                 
-        for func, args in iter(inpt.get, 'STOP'):#queue processing going on here
-            toCall = getattr(v,func)
-            ret = toCall(*args)#visa function call occurs here
+        for func, args in iter(inputQ.get, 'STOP'):#queue processing going on here
+            try:
+                toCall = getattr(v,func)
+                ret = toCall(*args)#visa function call occurs here
+            except:
+                ret = None
             if ret: #don't put None outputs into output queue
-                output.put(ret)
+                outputQ.put(ret)
         print "queue worker closed properly"
         v.close()
+        inputQ.close()
+        outputQ.close()
+        
 
     #make queue'd and non-queued writes look the same to the client
     def write(self,string):
