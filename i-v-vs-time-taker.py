@@ -4,16 +4,8 @@ This is a program to control a keithley 2400 sourcemeter.
 It allows for high frequency (~150Hz at present) sampling during I-V sourcemeasurements to gain insight into some device dynamics
 @author: grey
 """
+#TODO: change to user input of voltage dwell time
 import os, sys, inspect
-#these lines ensure the proper folders are in the python path no matter how this script gets run
-cmd_folder = os.path.realpath(os.path.abspath(os.path.split(inspect.getfile( inspect.currentframe() ))[0]))
-if cmd_folder not in sys.path:
-    sys.path.insert(0, cmd_folder)
-
-#here we include one folder up(where the folder pygrey should live)
-cmd_subfolder = os.path.realpath(os.path.abspath(os.path.join(os.path.split(inspect.getfile( inspect.currentframe() ))[0],"..")))
-if cmd_subfolder not in sys.path:
-    sys.path.insert(0, cmd_subfolder)
 
 try:
     from gpib import gpib
@@ -27,7 +19,6 @@ from PyQt4.QtCore import QString, QThread, pyqtSignal, QTimer, QSettings
 from PyQt4.QtGui import QApplication, QDialog, QMainWindow, QFileDialog, QMessageBox
 from selectInstrumentUI import Ui_instrumentSelection
 from ivSweeperUI import Ui_IVSweeper
-from resultsUI import Ui_results
 from scipy.special import lambertw
 from scipy.optimize import curve_fit
 from collections import OrderedDict
@@ -115,18 +106,10 @@ class measureThread(QThread):
         self.finishUpNow = False
         self.measureDone.emit(dataPoints)
 
-#here is the characteristic equation for solar cells, solved for I
-#we'll use it to extract the modelling parameters we're interested in
-#need to use lambert w function here in order to be able to solve for I explicitly
-#this method is from http://dx.doi.org/10.1016/j.solmat.2003.11.018
-def charEqn(V,I0,Iph,n,Rs,Rsh):
-    Vth = 0.0259#thermal voltage at 25c
-    #todo: check on the real here
-    return np.real(Rsh*(I0+Iph)/(Rs+Rsh)-V/(Rs+Rsh)-lambertw((Rs*I0*Rsh)/(n*Vth*(Rs+Rsh))*np.exp((Rsh*(Rs*Iph+Rs*I0+V))/(n*Vth*(Rs+Rsh))))*n*Vth/Rs)
-
 class postProcessThread(QThread):
     readyToProcess = pyqtSignal() #signal when we're ready to post process
     postProcessingDone = pyqtSignal(dict,np.ndarray)
+    debug = True
     def __init__(self, parent=None):
         QThread.__init__(self, parent)
 
@@ -135,7 +118,6 @@ class postProcessThread(QThread):
         self.readyToProcess.emit()
 
     def run(self):
-        Vth = 0.0259#thermal voltage at 25c
         v = self.rawData[:,0]
         i = self.rawData[:,1]
         t = self.rawData[:,2]
@@ -155,39 +137,18 @@ class postProcessThread(QThread):
                       '05_bestSpeed[ms]':  mindt*1000, \
                       '06_meanSpeed[Hz]': 1/meandt, \
                       '07_meanSpeed[ms]':  meandt*1000}
-        try:
-            popt, pcov = curve_fit(charEqn, v, i)
-            I0 = popt[0]
-            Iph = popt[1]
-            n = popt[2]
-            Rs = popt[3]
-            Rsh = popt[4]
-            Voc = n*Vth*math.log(Iph/I0+1)
-            Isc = Iph
-            #double check this:
-            #optimal voltage:
-            Vmax = Voc - Vth*math.log(1+Voc/Vth)
-            Imax = -Iph*(1-Vth/Vmax)
-            Pmax = Vmax*Imax
-            ff = (Pmax)/Voc*Isc
-            parameters['08_Rs[ohm]'] = Rs
-            parameters['09_Rsh[ohm]'] = Rsh
-            parameters['10_n'] = n
-            parameters['11_I0'] = I0
-            parameters['12_Isc'] = Isc
-            parameters['13_Voc'] = Voc
-            parameters['14_Vmax'] = Vmax
-            parameters['15_Imax'] = Imax
-            parameters['16_Pmax'] = Pmax
-            parameters['17_ff'] = ff
-        except:
-            parameters['08_note'] = 'could not fit data to solar cell model'
-        self.postProcessingDone.emit(parameters,self.rawData)
+        if self.debug:
+            print parameters
+            
 
 #here we have the thread that picks the data out of the visa done queue readies it for public consumption, and sends it to the post processor
-class collectDataThread(QThread):
+class collectAndSaveDataThread(QThread):
+    area = ''
+    saveTime = False
+    savePath = ''
+    needToCollect = 0 
     dataCollectionDone = pyqtSignal() #signal when we've collected the final data point
-    readyToCollect = pyqtSignal() #signal when we're ready to collect data
+    #readyToCollect = pyqtSignal() #signal when we're ready to collect data
     postData = pyqtSignal(np.ndarray) #send away the data collected here
     def __init__(self, q, parent=None):
         QThread.__init__(self, parent)
@@ -198,13 +159,14 @@ class collectDataThread(QThread):
     def earlyKill(self):
         self.prematureTermination = True
 
-    def catchPointNumber(self,needToCollect):
-        self.needToCollect = needToCollect
-        self.readyToCollect.emit()
+    #def catchPointNumber(self,needToCollect):
+        #self.needToCollect = needToCollect
+        #self.readyToCollect.emit()
 
     def run(self):
         data = [None]*self.needToCollect
-
+        
+        #get all the binary data from the done queue here
         for i in range(self.needToCollect): 
             data[i] = qBinRead(self.q)
 
@@ -217,8 +179,17 @@ class collectDataThread(QThread):
 
             #sort it by time(the 3rd col), because who knows what order we got it
             data = data[data[:,2].argsort()]
-
+            
             self.postData.emit(data)
+            hdr = '#Area = {0:s}\n#IV={1:b}\n'.format(self.area,self.saveTime)
+            
+            if not saveTime:#only save iv data
+                hdr = hdr+'#Voltage [V],Current [A]'
+                data = data[:,(0,1)]
+            else:
+                hdr = hdr+'#Voltage [V],Current [A],Time[s],Status'
+            np.savetxt(self.savePath+'_'+str(int(time.time()))+'.csv', data, delimiter=",",header=hdr)
+
         self.prematureTermination = False
 
 
@@ -235,35 +206,6 @@ class instrumentDetectThread(QThread):
         except:
             resourceNames = ["None found"]
         self.foundInstruments.emit(resourceNames)
-
-class ResultsDialog(QDialog):
-    def __init__(self):
-        QDialog.__init__(self)
-
-        # Set up the user interface from Designer.
-        self.ui = Ui_results()
-        self.ui.setupUi(self)
-        self.rawData = []
-
-        self.ui.saveButton.clicked.connect(self.saveCall)
-
-    def saveCall(self):
-        fileName = QFileDialog.getSaveFileName()
-        np.savetxt(str(fileName), self.rawData)
-
-    def catchUpdate(self,postProcessData,rawData):
-        self.postProcessData = postProcessData
-        self.rawData = rawData
-        self.updateResults()
-
-    def updateResults(self):
-        output = ''
-        od = OrderedDict(sorted(self.postProcessData.items()))
-        for a,b in od.items():
-            output = output+ str(a)+': '+str(b)+ '\n'
-        self.ui.summaryArea.setText(output)
-        if not self.isVisible():
-            self.show()
 
 
 #this is the dialog that the user uses to choose which instrument they wish to communicate with
@@ -304,17 +246,15 @@ class SelectDialog(QDialog):
 #send the user's selection to the main window
     def saveSelection (self):
         selectedInstrument = self.ui.instrumentList.selectedItems()[0].text()
-        if selectedInstrument == "None found":
-            return
-
         self.mainWindow.ui.addressField.setText(selectedInstrument)
-        self.mainWindow.initialConnect()
+        if selectedInstrument != "None found":
+            self.mainWindow.initialConnect()
 
 #this is the main gui window
 class MainWindow(QMainWindow):
     sweepVaribles = pyqtSignal(float,np.ndarray,str)
     killSweepNow = pyqtSignal()
-    def __init__(self,finder,results):
+    def __init__(self,finder):
         QMainWindow.__init__(self)
 
         self.settings = QSettings("greyltc", "ivSweeper")
@@ -331,16 +271,12 @@ class MainWindow(QMainWindow):
         #variable to keep track of if a sweep is ongoing
         self.sweeping = False
 
-        #keep track of if we have created the results window or not
-        self.resultsWindowExists = False
-
         # Set up the user interface from Designer.
         self.ui = Ui_IVSweeper()
         self.ui.setupUi(self)
 
         #store away instrument search dialog object
         self.finder = finder
-        self.results = results
 
         self.ui.addressField.setStyleSheet("QLineEdit { background-color : yellow;}")
 
@@ -362,19 +298,23 @@ class MainWindow(QMainWindow):
         self.ui.totalPointsSpin.valueChanged.connect(self.totalPointsCall)
         self.ui.reverseButton.clicked.connect(self.reverseCall)
         self.ui.actionRun_Test_Code.triggered.connect(self.testArea)
+        
+        self.ui.browseButton.clicked.connect(self.browseButtonCall)
         #self.ui.plotButton.clicked.connect(self.plotCall)
         #self.ui.addressField.editingFinished.connect(self.initialConnect) #this doesn't work, incorrect addresses here crash things
 
         #TODO: load state here
         #self.restoreState(self.settings.value('guiState').toByteArray())
 
-
-
+    def browseButtonCall(self):
+        dirName = QFileDialog.getExistingDirectory()
+        self.ui.dirEdit.setText(getExistingDirectory)
 
     #return -1 * the power of the device at a given voltage or current
     def invPower(self,request):
         request = request[0]
         
+        #TODO: remove this testing current fudge value
         currentFudge = 0.004;
         
         try:
@@ -492,7 +432,7 @@ class MainWindow(QMainWindow):
             self.ui.sweepButton.setText('Start Sweep')
             self.ui.outputCheck.setChecked(False)
             self.k.write(':source:' + self.source + ' {0:.4f}'.format(float(self.ui.startSpin.value())/1000))
-            self.k.write(':display:enable on')#this makes the device more responsive
+            #self.k.write(':display:enable on')#this makes the device more responsive
 
     #update progress bar
     def updateProgress(self, value):
@@ -581,9 +521,22 @@ class MainWindow(QMainWindow):
             else:#sweep dealy tiemrs are not running, we're mid-sweep, send the kill signal
                 self.killSweepNow.emit()
 
+    def saveOutputFile(self, nDataPoints):
+        print nDatapoints
+        self.collectAndSaveDataThread.needToCollect = nDataPoints
+        if self.ui.saveModeCombo.currentIndex() == 0:
+            self.collectAndSaveDataThread.saveTime = True # we're in I,V vs t mode
+        else:
+            self.collectAndSaveDataThread.saveTime = False  # we're in I vs V mode
+        self.collectAndSaveDataThread.area = str(self.ui.deviceAreaEdit.text())
+        
+        self.collectAndSaveDataThread.filePath = os.path.join(self.ui.dirEdit,self.ui.fileEdit)
+        
+        self.collectAndSaveDataThread.start()
+
     def initialSetup(self):
         try:
-            self.collectDataThread  = collectDataThread(self.k.done_queue)
+            self.collectAndSaveDataThread  = collectAndSaveDataThread(self.k.done_queue)
 
             #create the post processing thread and give it the keithley's done queue so that it can pull data from it
             self.postProcessThread = postProcessThread()
@@ -594,22 +547,20 @@ class MainWindow(QMainWindow):
             #create the sweep thread and give it the keithley's task queue so that it can issue commands to it
             self.sweepThread = sweepThread(self.k.task_queue)
 
-            self.measureThread.measureDone.connect(self.collectDataThread.catchPointNumber)
-            self.collectDataThread.readyToCollect.connect(self.collectDataThread.start)
+            #self.measureThread.measureDone.connect(self.collectDataThread.catchPointNumber)
+            self.measureThread.measureDone.connect(self.saveOutputFile)
+            #self.collectDataThread.readyToCollect.connect(self.collectDataThread.start)
 
             #now connect  all the signals associated with these threads:
             #update the progress bar during the sweep
             self.sweepThread.updateProgress.connect(self.updateProgress)
 
             #update gui and shut off the output only when the last data point has been collected properly
-            self.collectDataThread.dataCollectionDone.connect(self.doSweepComplete)
+            self.collectAndSaveDataThread.dataCollectionDone.connect(self.doSweepComplete)
 
-            self.collectDataThread.postData.connect(self.postProcessThread.acceptNewData)
+            self.collectAndSaveDataThread.postData.connect(self.postProcessThread.acceptNewData)
 
             self.postProcessThread.readyToProcess.connect(self.postProcessThread.start)
-
-            #self.postProcessThread.postProcessingDone.connect(self.postResults)
-            self.postProcessThread.postProcessingDone.connect(self.results.catchUpdate)
 
             #tell the measurement to stop when the sweep is done
             self.sweepThread.sweepComplete.connect(self.measureThread.timeToDie)
@@ -619,7 +570,8 @@ class MainWindow(QMainWindow):
 
             #kill sweep early on user request
             self.killSweepNow.connect(self.sweepThread.earlyKill)
-            self.killSweepNow.connect(self.collectDataThread.earlyKill)
+            self.killSweepNow.connect(self.collectAndSaveDataThread.earlyKill)
+            #TODO: should immediately stop threads and purge queue on user cancel
 
             self.k.write(":format:data sreal")
             self.k.write(':system:beeper:state 0')
@@ -930,8 +882,6 @@ class MainWindow(QMainWindow):
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     finder = SelectDialog()
-    results = ResultsDialog()
-    sweeper = MainWindow(finder,results)
+    sweeper = MainWindow(finder)
     sweeper.show()
-    #app.aboutToQuit.connect(sweeper.closeInstrument)
     sys.exit(app.exec_())
