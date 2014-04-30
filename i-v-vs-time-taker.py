@@ -374,19 +374,16 @@ class MainWindow(QMainWindow):
     #return -1 * the power of the device at a given voltage or current
     def invPower(self,request):
         request = request[0]
-        #TODO: assume voltage for now, eventually this should support current as the independant variable too
-
-        if request < 0:
-            request = 0
-        if request > 1.2:
-            request = 1.2
-
+        
+        currentFudge = 0.004;
+        
         try:
             print request
-            self.k.write(':source:'+self.source+':range {0:.5f}'.format(request))
+            self.k.write('source:'+self.source+' {0:.3f}'.format(request))
+            #self.k.write(':source:'+self.source+':range {0:.5f}'.format(request))
             self.k.task_queue.put(('read_raw',()))
             data = qBinRead(self.k.done_queue)
-            return (data[0]*data[1])
+            return (data[0]*(data[1]-currentFudge))
         except:
             self.ui.statusbar.showMessage("Error: Not connected",self.messageDuration);
             return np.nan
@@ -408,22 +405,37 @@ class MainWindow(QMainWindow):
     def testArea(self):
         print('Running test code now')
         assumedArea = 0.4;
+        
+        #voltage limits:
+        bnds = (0, 3)
+        #if request < limits[0]:
+            #request = limits[0]
+        #if request > limits[1]:
+            #request = limits[1]
+        self.k.write(':source:'+self.source+':range {0:.3f}'.format(bnds[1]))
+
+        
         t = time.time()
         powerTime = float(self.ui.totalTimeSpin.value()) #seconds
-        initialGuess = 0.7 #volts
+        initialGuess = 1 #volts
         self.ui.outputCheck.setChecked(True)
         oldSpeedIndex = self.ui.speedCombo.currentIndex()
         self.ui.speedCombo.setCurrentIndex(2)
         toc = 0
         while toc < powerTime:
-            optResults = optimize.minimize(self.invPower,initialGuess)
-            self.k.write(':source:'+self.source+':range {0:.5f}'.format(optResults.x[0]))
-            print "Optimized! Mpp Voltage: {0:.3f}".format(optResults.x[0])
+            optResults = optimize.minimize(self.invPower,initialGuess,method='COBYLA',bounds=(bnds,),tol=1e-4)
+            print optResults.message
+            print optResults.status
+            answer = float(optResults.x)
+            initialGuess = answer;
+            #self.k.write('source:'+self.source+' {0:.5f}'.format(optResults.x[0]))
+            #self.k.write(":SYST:KEY 23") #go into local mode for live display update
+            print "Optimized! Mpp Voltage: {0:.3f}".format(answer)
             time.sleep(5)
             self.k.task_queue.put(('read_raw',()))
             data = qBinRead(self.k.done_queue)        
             #vi = (data[0], data[1], data[1]*data[0]*1000/.4*-1)
-            print 'Max Power: {0:.3f}% '.format(data[0]*data[1]*1000*-1/assumedArea)
+            print 'Max Power: {0:.3f}% '.format(data[0]*data[1]*1000/assumedArea)
             toc = time.time() - t
         self.ui.outputCheck.setChecked(False)
         self.ui.speedCombo.setCurrentIndex(oldSpeedIndex)
@@ -514,6 +526,7 @@ class MainWindow(QMainWindow):
         try:
             if self.ui.outputCheck.isChecked():
                 self.k.write(":output on")
+                self.k.write(":SYST:KEY 23") #go into local mode for live display update
             else:
                 self.k.write(":output off")
         except:
@@ -653,37 +666,59 @@ class MainWindow(QMainWindow):
             self.k.write("*rst")
             self.k.write('*cls')
             self.k.task_queue.put(('ask',('*idn?',)))
-            ident = self.k.done_queue.get()
-
-            self.ui.statusbar.showMessage("Connected to " + ident,self.messageDuration)
+            try:
+                ident = self.k.done_queue.get(block=True,timeout=1)
+                self.ui.statusbar.showMessage("Connected to " + ident,self.messageDuration)
+            except:
+                ident = []
 
             #silly check here, if the instrument returned an identification string larger than 30 characters
             #assume it's okay to perform a sweep
-            if len(ident) > 30:
-                self.k.task_queue.put(('ask',(':system:mep:state?',)))
-                isSCPI = self.k.done_queue.get()
-                if isSCPI == '0':
-                    if self.initialSetup():
-                        self.ui.sweepButton.setEnabled(True)
-                        self.ui.findButton.setDefault(False)
-                        self.ui.sweepButton.setFocus()
-                        self.ui.sweepButton.setDefault(True)
-                        self.ui.addressField.setStyleSheet("QLineEdit { background-color : green;}")
+            modelString = "MODEL 2400"
+            firmwareString = "C32"
+            if ident.__contains__(modelString):
+                if ident.__contains__(firmwareString):
+                    self.k.task_queue.put(('ask',(':system:mep:state?',)))
+                    isSCPI = self.k.done_queue.get()
+                    if isSCPI == '0':
+                        if self.initialSetup():
+                            self.ui.sweepButton.setEnabled(True)
+                            self.ui.findButton.setDefault(False)
+                            self.ui.sweepButton.setFocus()
+                            self.ui.sweepButton.setDefault(True)
+                            self.ui.addressField.setStyleSheet("QLineEdit { background-color : green;}")
+                        else:
+                            self.ui.addressField.setStyleSheet("QLineEdit { background-color : red;}")
+                            self.closeInstrument()
+                            self.ui.statusbar.showMessage("Setup failed")                      
                     else:
+                        self.closeInstrument()
                         self.ui.addressField.setStyleSheet("QLineEdit { background-color : red;}")
-                        self.ui.statusbar.showMessage("Setup failed")                      
+                        self.ui.statusbar.showMessage("SCPI comms mode detected")                        
+                        msgBox = QMessageBox()
+                        msgBox.setWindowTitle("SCPI mode detected. Please sqitch to 488.1 mode.")
+                        message488 = \
+                            "Perform the following steps to select the 488.1 protocol:\n" + \
+                            "1. Press MENU to display the MAIN MENU.\n" + \
+                            "2. Place the cursor on COMMUNICATION and press ENTER to display the COMMUNICATIONS SETUP menu.\n" + \
+                            "3. Place the cursor on GPIB and press ENTER to display the present GPIB address.\n" + \
+                            "4. Press ENTER to display the GPIB PROTOCOL menu.\n" + \
+                            "5. Place the cursor on 488.1 and press ENTER.\n" + \
+                            "6. Use the EXIT key to back out of the menu structure."
+                        msgBox.setText(message488);
+                        msgBox.exec_();
                 else:
                     self.ui.addressField.setStyleSheet("QLineEdit { background-color : red;}")
-                    self.ui.statusbar.showMessage("SCPI comms mode detected")                        
-                    msgBox = QMessageBox()
-                    msgBox.setText("Please switch instrument to 488.1 mode\n~The Management");
-                    msgBox.exec_();
+                    self.closeInstrument()
+                    self.ui.statusbar.showMessage('{0:s} found, firmware {1:s} not detected. Please upgrade firmware to continue.'.format(modelString,firmwareString))                    
             else:
                 self.ui.addressField.setStyleSheet("QLineEdit { background-color : red;}")
-                self.ui.statusbar.showMessage("Connection failed")
+                self.closeInstrument()
+                self.ui.statusbar.showMessage('Could not detect instrument with "{0:s}"'.format(modelString))
 
         except:
             self.ui.addressField.setStyleSheet("QLineEdit { background-color : red;}")
+            self.closeInstrument()
             self.ui.statusbar.showMessage("Connection failed")
 
 
@@ -814,10 +849,18 @@ class MainWindow(QMainWindow):
     #do these things just before program termination to ensure the computer and instrument are left in a friendly state
     def closeInstrument(self):
         try:
-            self.measureThread.timeToDie()
             self.sweeping = False
+            self.measureThread.timeToDie()
+        except:
+            pass
+            
+        try:
             self.killSweepNow.emit()
             self.doSweepComplete()
+        except:
+            pass
+        
+        try:
             self.k.task_queue.put(('clear',()))
             self.k.write(':abort')
             self.k.write(':arm:count 1')
@@ -827,7 +870,8 @@ class MainWindow(QMainWindow):
             self.k.write('*rst')
             self.k.write('*cls')
             self.k.write(':system:key 23')
-            self.k.task_queue.put('STOP')#this terminates gpib driver queue worker properly
+            self.k.__del__() #cleanup
+            del self.k #remove
         except:
             print 'Instrument not properly disconnected'
 
