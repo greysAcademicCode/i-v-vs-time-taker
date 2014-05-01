@@ -248,7 +248,8 @@ class MainWindow(QMainWindow):
         self.ui.startSpin.valueChanged.connect(self.setStart)
         self.ui.endSpin.valueChanged.connect(self.setSourceRange)
         self.ui.outputCheck.toggled.connect(self.setOutput)
-        self.ui.totalTimeSpin.valueChanged.connect(self.totalTimeCall)
+        #self.ui.totalTimeSpin.valueChanged.connect(self.totalTimeCall)
+        self.ui.delaySpinBox.valueChanged.connect(self.totalTimeCall)
         self.ui.totalPointsSpin.valueChanged.connect(self.totalPointsCall)
         self.ui.reverseButton.clicked.connect(self.reverseCall)
         self.ui.actionRun_Test_Code.triggered.connect(self.testArea)
@@ -298,7 +299,8 @@ class MainWindow(QMainWindow):
         request = request[0]
         
         #TODO: remove this testing current fudge value
-        currentFudge = 0.004;
+        #currentFudge = 0.004;
+        currentFudge = 0;
         
         try:
             print request
@@ -324,53 +326,47 @@ class MainWindow(QMainWindow):
                 self.k.write(":source2:ttl " + shutterOnValue)
         except:
             self.ui.statusbar.showMessage("Error: Not connected",self.messageDuration)
+    
+    #TODO: move this to its own thread
+    def maxPowerDwell(self):
+        voltageSourceRange = 3 # operate between +/- 3V
+        currentSourceRange = 0.1 # operate between +/- 100ma
+        if self.sourceUnit == 'V': 
+            self.k.write(':source:'+self.source+':range {0:.3f}'.format(voltageSourceRange))
+            initialGuess = 1
+        else:
+            self.k.write(':source:'+self.source+':range {0:.3f}'.format(currentSourceRange))
+            initialGuess = 0.01 # no idea if this is right
 
-    def testArea(self):
-        print('Running test code now')
-        tempFile = QTemporaryFile()
-        tempFile.open()
-        tempFile.close()
-        tempFileName = str(tempFile.fileName())
-        print tempFileName
-        ary = [3,4]
-        destination = 'C:\Users\l3iggs\test.csv'
-        np.savetxt(tempFileName, ary, delimiter=",")
-        tempFile.rename('C:\Users\l3iggs\Desktop\yoyoma.csv')        
-        assumedArea = float(self.ui.deviceAreaEdit.text());
+        dt = self.ui.delaySpinBox.value()
+        nPoints = float(self.ui.totalPointsSpin.value())
         
-        #voltage limits:
-        bnds = (0, 3)
-        #if request < limits[0]:
-            #request = limits[0]
-        #if request > limits[1]:
-            #request = limits[1]
-        self.k.write(':source:'+self.source+':range {0:.3f}'.format(bnds[1]))
-
-        
-        t = time.time()
-        powerTime = float(self.ui.totalTimeSpin.value()) #seconds
-        initialGuess = 1 #volts
         self.ui.outputCheck.setChecked(True)
         oldSpeedIndex = self.ui.speedCombo.currentIndex()
         self.ui.speedCombo.setCurrentIndex(2)
-        toc = 0
-        while toc < powerTime:
-            optResults = optimize.minimize(self.invPower,initialGuess,method='COBYLA',bounds=(bnds,),tol=1e-4)
+        
+        
+        for i in range(int(nPoints)):
+            #optResults = optimize.minimize(self.invPower,initialGuess,method='COBYLA',bounds=(bnds,),tol=1e-4)
+            optResults = optimize.minimize(self.invPower,initialGuess,method='COBYLA',tol=1e-4)
             print optResults.message
             print optResults.status
             answer = float(optResults.x)
-            initialGuess = answer;
-            #self.k.write('source:'+self.source+' {0:.5f}'.format(optResults.x[0]))
-            #self.k.write(":SYST:KEY 23") #go into local mode for live display update
+            initialGuess = answer
+            self.k.write(":SYST:KEY 23") #go into local mode for live display update
             print "Optimized! Mpp Voltage: {0:.3f}".format(answer)
-            time.sleep(5)
+            print "Now sleeping for {0:.1f} seconds".format(dt)
+            time.sleep(dt)
             self.k.task_queue.put(('read_raw',()))
             data = qBinRead(self.k.done_queue)        
             #vi = (data[0], data[1], data[1]*data[0]*1000/.4*-1)
-            print 'Max Power: {0:.3f}% '.format(data[0]*data[1]*1000/assumedArea)
-            toc = time.time() - t
+            print 'Max Power: {0:.3f}% '.format(data[0]*data[1]*1000/float(self.ui.deviceAreaEdit.text()))
         self.ui.outputCheck.setChecked(False)
-        self.ui.speedCombo.setCurrentIndex(oldSpeedIndex)
+        self.ui.speedCombo.setCurrentIndex(oldSpeedIndex)        
+
+    def testArea(self):
+        print('Running test code now')
+        #self.maxPowerDwell()
 
         #x = np.random.randn(10000)
         #np.hist(x, 100)        
@@ -460,51 +456,55 @@ class MainWindow(QMainWindow):
 
     #do these things when the user presses the sweep button
     def manageSweep(self):
-        if not self.sweeping:
-
-            #disallow user from fucking shit up while the sweep is taking place
-            self.ui.terminalsGroup.setEnabled(False)
-            self.ui.wiresGroup.setEnabled(False)
-            self.ui.modeGroup.setEnabled(False)
-            self.ui.complianceGroup.setEnabled(False)
-            self.ui.sweepGroup.setEnabled(False)
-            self.ui.daqGroup.setEnabled(False)
-            self.ui.outputCheck.setEnabled(False)
-            self.ui.addressGroup.setEnabled(False)
-
-            #calculate sweep parameters from data in gui elements
-            self.ui.outputCheck.setChecked(True)
-            tTot = float(self.ui.totalTimeSpin.value())
-            nPoints = float(self.ui.totalPointsSpin.value())
-            start = float(self.ui.startSpin.value())/1000
-            end = float(self.ui.endSpin.value())/1000
-
-            #sweep parameters
-            dt = tTot/nPoints
-            sweepValues = np.linspace(start,end,nPoints)
-
-            if self.ui.displayBlankCheck.isChecked():
-                self.k.write(':display:enable off')#this makes the device more responsive
-
-            #send sweep parameters to the sweep thread
-            self.sweepVaribles.emit(dt,sweepValues,self.source)
-            self.sweeping = True
-
-            #start sweeping and measuring
-            self.measureThread.start()
-            self.sweepThread.start()
-
-            self.ui.sweepButton.setText('Abort Sweep')
-
-        else:#sweep cancelled mid-run by user
-            self.sweeping = False
-            self.ui.statusbar.showMessage("Sweep aborted",self.messageDuration)
-            if hasattr(self,'timerA') and self.timerA.isActive():
-                self.timerA.stop()
-                self.timerB.stop()
-                self.doSweepComplete()
-            else:#sweep dealy tiemrs are not running, we're mid-sweep, send the kill signal
-                self.killSweepNow.emit()
+        if self.ui.maxPowerCheck.isChecked():
+            self.maxPowerDwell() #TODO this should go into the background
+        else:
+            if not self.sweeping:
+    
+                #disallow user from fucking shit up while the sweep is taking place
+                self.ui.terminalsGroup.setEnabled(False)
+                self.ui.wiresGroup.setEnabled(False)
+                self.ui.modeGroup.setEnabled(False)
+                self.ui.complianceGroup.setEnabled(False)
+                self.ui.sweepGroup.setEnabled(False)
+                self.ui.daqGroup.setEnabled(False)
+                self.ui.outputCheck.setEnabled(False)
+                self.ui.addressGroup.setEnabled(False)
+    
+                #calculate sweep parameters from data in gui elements
+                self.ui.outputCheck.setChecked(True)
+                #tTot = float(self.ui.totalTimeSpin.value())
+                nPoints = float(self.ui.totalPointsSpin.value())
+                start = float(self.ui.startSpin.value())/1000
+                end = float(self.ui.endSpin.value())/1000
+    
+                #sweep parameters
+                #dt = tTot/nPoints
+                dt = self.ui.delaySpinBox.value()
+                sweepValues = np.linspace(start,end,nPoints)
+    
+                if self.ui.displayBlankCheck.isChecked():
+                    self.k.write(':display:enable off')#this makes the device more responsive
+    
+                #send sweep parameters to the sweep thread
+                self.sweepVaribles.emit(dt,sweepValues,self.source)
+                self.sweeping = True
+    
+                #start sweeping and measuring
+                self.measureThread.start()
+                self.sweepThread.start()
+    
+                self.ui.sweepButton.setText('Abort Sweep')
+    
+            else:#sweep cancelled mid-run by user
+                self.sweeping = False
+                self.ui.statusbar.showMessage("Sweep aborted",self.messageDuration)
+                if hasattr(self,'timerA') and self.timerA.isActive():
+                    self.timerA.stop()
+                    self.timerB.stop()
+                    self.doSweepComplete()
+                else:#sweep dealy tiemrs are not running, we're mid-sweep, send the kill signal
+                    self.killSweepNow.emit()
 
     def saveOutputFile(self,nDataPoints):
         self.collectAndSaveDataThread.needToCollect = nDataPoints
@@ -814,29 +814,34 @@ class MainWindow(QMainWindow):
             self.ui.statusbar.showMessage("Error: Not connected",self.messageDuration)
 
     def updateDeltaText(self):
-        tTot = float(self.ui.totalTimeSpin.value())
+        #tTot = float(self.ui.totalTimeSpin.value())
+        dt = self.ui.delaySpinBox.value()
         nPoints = float(self.ui.totalPointsSpin.value())
         start = float(self.ui.startSpin.value())
         end = float(self.ui.endSpin.value())
         span = end-start
-        dt = tTot/nPoints
-
-        timeText = QString(u'Δ={0:.0f} ms'.format(dt*1000))
+        tTot = dt*nPoints
+        
+        if tTot >= 60:
+            timeText = QString(u'tot={0:.1f} min'.format(tTot/60))
+        else:
+            timeText = QString(u'tot={0:.3f} s'.format(tTot))
+        self.ui.totalLabel.setText(timeText)
 
         if nPoints == 1:            
             stepText = QString(u'Δ=NaN m{0:}'.format(self.sourceUnit))
         else:
             stepText = QString(u'Δ={0:.0f} m{1:}'.format(span/(nPoints-1),self.sourceUnit))
         self.ui.deltaStep.setText(stepText)
-        self.ui.deltaTime.setText(timeText)
+        
 
     def totalPointsCall(self,newValue):        
         #ensure that total time is not too short as total number of data points goes up
-        tTotMin = float(newValue)*0.02
-        if tTotMin < 2:
-            tTotMin = 2
-        tTotMin = math.ceil(tTotMin)
-        self.ui.totalTimeSpin.setMinimum(tTotMin)
+        #tTotMin = float(newValue)*0.02
+        #if tTotMin < 2:
+        #    tTotMin = 2
+        #tTotMin = math.ceil(tTotMin)
+        #self.ui.totalTimeSpin.setMinimum(tTotMin)
 
 
         self.updateDeltaText()

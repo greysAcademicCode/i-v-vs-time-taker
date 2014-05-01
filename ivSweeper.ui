@@ -234,7 +234,7 @@
       <rect>
        <x>50</x>
        <y>50</y>
-       <width>101</width>
+       <width>91</width>
        <height>20</height>
       </rect>
      </property>
@@ -256,7 +256,7 @@
       <rect>
        <x>50</x>
        <y>20</y>
-       <width>101</width>
+       <width>91</width>
        <height>20</height>
       </rect>
      </property>
@@ -276,7 +276,7 @@
     <widget class="QSpinBox" name="totalPointsSpin">
      <property name="geometry">
       <rect>
-       <x>240</x>
+       <x>230</x>
        <y>20</y>
        <width>71</width>
        <height>20</height>
@@ -301,49 +301,27 @@
     <widget class="QLabel" name="label_3">
      <property name="geometry">
       <rect>
-       <x>160</x>
+       <x>150</x>
        <y>20</y>
        <width>81</width>
        <height>20</height>
       </rect>
      </property>
      <property name="text">
-      <string>Total Points:</string>
+      <string>Sweep Points:</string>
      </property>
     </widget>
     <widget class="QLabel" name="label_6">
      <property name="geometry">
       <rect>
-       <x>160</x>
+       <x>150</x>
        <y>50</y>
        <width>71</width>
        <height>20</height>
       </rect>
      </property>
      <property name="text">
-      <string>Total Time:</string>
-     </property>
-    </widget>
-    <widget class="QSpinBox" name="totalTimeSpin">
-     <property name="geometry">
-      <rect>
-       <x>240</x>
-       <y>50</y>
-       <width>71</width>
-       <height>20</height>
-      </rect>
-     </property>
-     <property name="suffix">
-      <string> s</string>
-     </property>
-     <property name="minimum">
-      <number>2</number>
-     </property>
-     <property name="maximum">
-      <number>999999999</number>
-     </property>
-     <property name="value">
-      <number>2</number>
+      <string>Step Delay:</string>
      </property>
     </widget>
     <widget class="QCheckBox" name="autoAdvance">
@@ -368,27 +346,14 @@
     <widget class="QLabel" name="deltaStep">
      <property name="geometry">
       <rect>
-       <x>320</x>
+       <x>310</x>
        <y>20</y>
-       <width>71</width>
-       <height>30</height>
+       <width>81</width>
+       <height>20</height>
       </rect>
      </property>
      <property name="text">
       <string>Δ=20 mV</string>
-     </property>
-    </widget>
-    <widget class="QLabel" name="deltaTime">
-     <property name="geometry">
-      <rect>
-       <x>320</x>
-       <y>50</y>
-       <width>71</width>
-       <height>30</height>
-      </rect>
-     </property>
-     <property name="text">
-      <string>Δ=20 ms</string>
      </property>
     </widget>
     <widget class="QCheckBox" name="maxPowerCheck">
@@ -400,8 +365,52 @@
        <height>20</height>
       </rect>
      </property>
+     <property name="toolTip">
+      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;DANGER: This is relatively untested and there's no guarentee it won't destroy your device. Make sure your compliance is set to prevent destruction.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+     </property>
      <property name="text">
       <string>Dwell @ Max Power</string>
+     </property>
+    </widget>
+    <widget class="QDoubleSpinBox" name="delaySpinBox">
+     <property name="geometry">
+      <rect>
+       <x>230</x>
+       <y>50</y>
+       <width>71</width>
+       <height>20</height>
+      </rect>
+     </property>
+     <property name="toolTip">
+      <string>After reaching a new source value in the sweep, this amount of time will pass before advancing to the next value</string>
+     </property>
+     <property name="suffix">
+      <string> s</string>
+     </property>
+     <property name="decimals">
+      <number>3</number>
+     </property>
+     <property name="maximum">
+      <double>1000.000000000000000</double>
+     </property>
+     <property name="singleStep">
+      <double>0.010000000000000</double>
+     </property>
+     <property name="value">
+      <double>0.020000000000000</double>
+     </property>
+    </widget>
+    <widget class="QLabel" name="totalLabel">
+     <property name="geometry">
+      <rect>
+       <x>310</x>
+       <y>50</y>
+       <width>81</width>
+       <height>20</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>tot=2.000s</string>
      </property>
     </widget>
    </widget>
