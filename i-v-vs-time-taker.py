@@ -15,7 +15,7 @@ except:
     print "Could not import GPIB"
 
 import math
-from PyQt4.QtCore import QString, QThread, pyqtSignal, QTimer, QSettings
+from PyQt4.QtCore import QString, QThread, pyqtSignal, QTimer, QSettings, QTemporaryFile, QFile
 from PyQt4.QtGui import QApplication, QDialog, QMainWindow, QFileDialog, QMessageBox
 from selectInstrumentUI import Ui_instrumentSelection
 from ivSweeperUI import Ui_IVSweeper
@@ -108,7 +108,6 @@ class measureThread(QThread):
 
 class postProcessThread(QThread):
     readyToProcess = pyqtSignal() #signal when we're ready to post process
-    postProcessingDone = pyqtSignal(dict,np.ndarray)
     debug = True
     def __init__(self, parent=None):
         QThread.__init__(self, parent)
@@ -144,11 +143,11 @@ class postProcessThread(QThread):
 #here we have the thread that picks the data out of the visa done queue readies it for public consumption, and sends it to the post processor
 class collectAndSaveDataThread(QThread):
     area = ''
+    tempFile = ''
     saveTime = False
     savePath = ''
     needToCollect = 0 
     dataCollectionDone = pyqtSignal() #signal when we've collected the final data point
-    #readyToCollect = pyqtSignal() #signal when we're ready to collect data
     postData = pyqtSignal(np.ndarray) #send away the data collected here
     def __init__(self, q, parent=None):
         QThread.__init__(self, parent)
@@ -159,11 +158,13 @@ class collectAndSaveDataThread(QThread):
     def earlyKill(self):
         self.prematureTermination = True
 
-    #def catchPointNumber(self,needToCollect):
-        #self.needToCollect = needToCollect
-        #self.readyToCollect.emit()
-
     def run(self):
+        saveDestination = self.savePath+'_'+str(int(time.time()))+'.csv';
+        self.tempFile.open()
+        self.tempFile.close()
+        tempFileName = str(self.tempFile.fileName())
+        print tempFileName
+        
         data = [None]*self.needToCollect
         
         #get all the binary data from the done queue here
@@ -180,15 +181,14 @@ class collectAndSaveDataThread(QThread):
             #sort it by time(the 3rd col), because who knows what order we got it
             data = data[data[:,2].argsort()]
             
+            hdr = 'Area = {0:s} [cm^2]\nI&V vs t = {1:b}\n'.format(self.area, self.saveTime)
             self.postData.emit(data)
-            hdr = '#Area = {0:s}\n#IV={1:b}\n'.format(self.area,self.saveTime)
-            
-            if not saveTime:#only save iv data
-                hdr = hdr+'#Voltage [V],Current [A]'
+            if not self.saveTime:#only save iv data
+                hdr = hdr+'Voltage [V],Current [A]'
                 data = data[:,(0,1)]
             else:
-                hdr = hdr+'#Voltage [V],Current [A],Time[s],Status'
-            np.savetxt(self.savePath+'_'+str(int(time.time()))+'.csv', data, delimiter=",",header=hdr)
+                hdr = hdr+'Voltage [V],Current [A],Time[s],Status'
+            np.savetxt(tempFileName, data, delimiter=",",header=hdr)
 
         self.prematureTermination = False
 
@@ -257,7 +257,7 @@ class MainWindow(QMainWindow):
     def __init__(self,finder):
         QMainWindow.__init__(self)
 
-        self.settings = QSettings("greyltc", "ivSweeper")
+        self.settings = QSettings("greyltc", "ivSweeper")   
 
         #how long status messages show for
         self.messageDuration = 1000#ms
@@ -274,6 +274,9 @@ class MainWindow(QMainWindow):
         # Set up the user interface from Designer.
         self.ui = Ui_IVSweeper()
         self.ui.setupUi(self)
+        
+        if self.settings.contains('lastFolder'):
+            self.ui.dirEdit.setText(self.settings.value('lastFolder').toString())          
 
         #store away instrument search dialog object
         self.finder = finder
@@ -306,9 +309,10 @@ class MainWindow(QMainWindow):
         #TODO: load state here
         #self.restoreState(self.settings.value('guiState').toByteArray())
 
-    def browseButtonCall(self):
-        dirName = QFileDialog.getExistingDirectory()
-        self.ui.dirEdit.setText(getExistingDirectory)
+    def browseButtonCall(self):      
+        dirName = QFileDialog.getExistingDirectory(directory=self.ui.dirEdit.text())
+        self.settings.setValue('lastFolder',dirName)
+        self.ui.dirEdit.setText(dirName)
 
     #return -1 * the power of the device at a given voltage or current
     def invPower(self,request):
@@ -344,7 +348,16 @@ class MainWindow(QMainWindow):
 
     def testArea(self):
         print('Running test code now')
-        assumedArea = 0.4;
+        tempFile = QTemporaryFile()
+        tempFile.open()
+        tempFile.close()
+        tempFileName = str(tempFile.fileName())
+        print tempFileName
+        ary = [3,4]
+        destination = 'C:\Users\l3iggs\test.csv'
+        np.savetxt(tempFileName, ary, delimiter=",")
+        tempFile.rename('C:\Users\l3iggs\Desktop\yoyoma.csv')        
+        assumedArea = float(self.ui.deviceAreaEdit.text());
         
         #voltage limits:
         bnds = (0, 3)
@@ -521,8 +534,7 @@ class MainWindow(QMainWindow):
             else:#sweep dealy tiemrs are not running, we're mid-sweep, send the kill signal
                 self.killSweepNow.emit()
 
-    def saveOutputFile(self, nDataPoints):
-        print nDatapoints
+    def saveOutputFile(self,nDataPoints):
         self.collectAndSaveDataThread.needToCollect = nDataPoints
         if self.ui.saveModeCombo.currentIndex() == 0:
             self.collectAndSaveDataThread.saveTime = True # we're in I,V vs t mode
@@ -530,7 +542,9 @@ class MainWindow(QMainWindow):
             self.collectAndSaveDataThread.saveTime = False  # we're in I vs V mode
         self.collectAndSaveDataThread.area = str(self.ui.deviceAreaEdit.text())
         
-        self.collectAndSaveDataThread.filePath = os.path.join(self.ui.dirEdit,self.ui.fileEdit)
+        self.collectAndSaveDataThread.savePath = os.path.join(str(self.ui.dirEdit.text()),str(self.ui.fileEdit.text()))
+        
+        self.collectAndSaveDataThread.tempFile = QTemporaryFile()
         
         self.collectAndSaveDataThread.start()
 
