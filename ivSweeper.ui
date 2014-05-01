@@ -7,8 +7,14 @@
     <x>0</x>
     <y>0</y>
     <width>621</width>
-    <height>507</height>
+    <height>500</height>
    </rect>
+  </property>
+  <property name="sizePolicy">
+   <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+    <horstretch>0</horstretch>
+    <verstretch>0</verstretch>
+   </sizepolicy>
   </property>
   <property name="windowTitle">
    <string>IV Sweep Dynamics Investigator</string>
@@ -19,8 +25,8 @@
      <rect>
       <x>10</x>
       <y>0</y>
-      <width>440</width>
-      <height>60</height>
+      <width>281</width>
+      <height>50</height>
      </rect>
     </property>
     <property name="toolTip">
@@ -33,39 +39,22 @@
      <bool>false</bool>
     </property>
     <property name="title">
-     <string>Instrument Address</string>
+     <string>Instrument Selection</string>
     </property>
-    <widget class="QPushButton" name="findButton">
-     <property name="geometry">
-      <rect>
-       <x>270</x>
-       <y>20</y>
-       <width>160</width>
-       <height>30</height>
-      </rect>
-     </property>
-     <property name="text">
-      <string>Discover Instrument...</string>
-     </property>
-     <property name="autoDefault">
-      <bool>false</bool>
-     </property>
-     <property name="default">
-      <bool>true</bool>
-     </property>
-    </widget>
-    <widget class="QLineEdit" name="addressField">
+    <widget class="QComboBox" name="instrumentCombo">
      <property name="geometry">
       <rect>
        <x>10</x>
        <y>20</y>
-       <width>241</width>
-       <height>30</height>
+       <width>260</width>
+       <height>20</height>
       </rect>
      </property>
-     <property name="toolTip">
-      <string/>
-     </property>
+     <item>
+      <property name="text">
+       <string>(Re)Scan for Instruments</string>
+      </property>
+     </item>
     </widget>
    </widget>
    <widget class="QPushButton" name="sweepButton">
@@ -75,7 +64,7 @@
     <property name="geometry">
      <rect>
       <x>520</x>
-      <y>430</y>
+      <y>420</y>
       <width>90</width>
       <height>30</height>
      </rect>
@@ -93,10 +82,10 @@
    <widget class="QGroupBox" name="terminalsGroup">
     <property name="geometry">
      <rect>
-      <x>460</x>
+      <x>300</x>
       <y>0</y>
       <width>150</width>
-      <height>60</height>
+      <height>50</height>
      </rect>
     </property>
     <property name="title">
@@ -108,7 +97,7 @@
        <x>10</x>
        <y>20</y>
        <width>60</width>
-       <height>30</height>
+       <height>20</height>
       </rect>
      </property>
      <property name="toolTip">
@@ -127,7 +116,7 @@
        <x>80</x>
        <y>20</y>
        <width>60</width>
-       <height>30</height>
+       <height>20</height>
       </rect>
      </property>
      <property name="toolTip">
@@ -141,9 +130,9 @@
    <widget class="QGroupBox" name="wiresGroup">
     <property name="geometry">
      <rect>
-      <x>370</x>
-      <y>60</y>
-      <width>150</width>
+      <x>430</x>
+      <y>50</y>
+      <width>180</width>
       <height>50</height>
      </rect>
     </property>
@@ -172,7 +161,7 @@
     <widget class="QRadioButton" name="fourwireRadio">
      <property name="geometry">
       <rect>
-       <x>80</x>
+       <x>100</x>
        <y>10</y>
        <width>80</width>
        <height>40</height>
@@ -190,7 +179,7 @@
     <property name="geometry">
      <rect>
       <x>10</x>
-      <y>110</y>
+      <y>100</y>
       <width>390</width>
       <height>130</height>
      </rect>
@@ -420,7 +409,7 @@
     <property name="geometry">
      <rect>
       <x>410</x>
-      <y>110</y>
+      <y>100</y>
       <width>200</width>
       <height>131</height>
      </rect>
@@ -568,9 +557,9 @@
    <widget class="QGroupBox" name="complianceGroup">
     <property name="geometry">
      <rect>
-      <x>160</x>
-      <y>60</y>
-      <width>200</width>
+      <x>190</x>
+      <y>50</y>
+      <width>230</width>
       <height>50</height>
      </rect>
     </property>
@@ -580,7 +569,7 @@
     <widget class="QSpinBox" name="complianceSpin">
      <property name="geometry">
       <rect>
-       <x>100</x>
+       <x>120</x>
        <y>20</y>
        <width>90</width>
        <height>20</height>
@@ -620,8 +609,8 @@
     <property name="geometry">
      <rect>
       <x>10</x>
-      <y>60</y>
-      <width>140</width>
+      <y>50</y>
+      <width>170</width>
       <height>50</height>
      </rect>
     </property>
@@ -656,7 +645,7 @@
      </property>
      <property name="geometry">
       <rect>
-       <x>70</x>
+       <x>90</x>
        <y>20</y>
        <width>70</width>
        <height>22</height>
@@ -674,7 +663,7 @@
     <property name="geometry">
      <rect>
       <x>10</x>
-      <y>430</y>
+      <y>420</y>
       <width>510</width>
       <height>30</height>
      </rect>
@@ -690,7 +679,7 @@
     <property name="geometry">
      <rect>
       <x>10</x>
-      <y>240</y>
+      <y>230</y>
       <width>291</width>
       <height>61</height>
      </rect>
@@ -738,7 +727,7 @@
     <property name="geometry">
      <rect>
       <x>310</x>
-      <y>240</y>
+      <y>230</y>
       <width>300</width>
       <height>60</height>
      </rect>
@@ -811,21 +800,21 @@
    <widget class="QGroupBox" name="groupBox_2">
     <property name="geometry">
      <rect>
-      <x>530</x>
-      <y>60</y>
-      <width>80</width>
+      <x>460</x>
+      <y>0</y>
+      <width>150</width>
       <height>50</height>
      </rect>
     </property>
     <property name="title">
-     <string>Area [cm^2]</string>
+     <string>Device Area [cm^2]</string>
     </property>
     <widget class="QLineEdit" name="deviceAreaEdit">
      <property name="geometry">
       <rect>
-       <x>10</x>
+       <x>40</x>
        <y>20</y>
-       <width>60</width>
+       <width>71</width>
        <height>20</height>
       </rect>
      </property>
@@ -841,7 +830,7 @@
     <property name="geometry">
      <rect>
       <x>10</x>
-      <y>300</y>
+      <y>290</y>
       <width>600</width>
       <height>60</height>
      </rect>
@@ -880,7 +869,7 @@
     <property name="geometry">
      <rect>
       <x>10</x>
-      <y>360</y>
+      <y>350</y>
       <width>601</width>
       <height>60</height>
      </rect>
