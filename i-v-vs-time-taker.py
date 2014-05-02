@@ -106,6 +106,7 @@ class measureThread(QThread):
         self.measureDone.emit(dataPoints) #here we signal how many data points will need to be collected
 
 class postProcessThread(QThread):
+    sweepUp = True
     area = ''
     tempFile = ''
     saveTime = False
@@ -136,19 +137,10 @@ class postProcessThread(QThread):
         meandt = np.mean(diffs)
         maxdt = np.max(diffs)
         mindt = np.min(diffs)
-
-        parameters = {'00_nSamples': len(t), \
-                      '01_pMaxRaw[mW]': pmaxRaw*1000, \
-                      '02_worstSpeed[Hz]': 1/maxdt, \
-                      '03_worstSpeed[ms]':  maxdt*1000, \
-                      '04_bestSpeed[Hz]': 1/mindt, \
-                      '05_bestSpeed[ms]':  mindt*1000, \
-                      '06_meanSpeed[Hz]': 1/meandt, \
-                      '07_meanSpeed[ms]':  meandt*1000}
-        if self.debug:
-            pp.pprint(parameters)
         
-        hdr = 'Area = {0:s} [cm^2]\nI&V vs t = {1:b}\n'.format(self.area, self.saveTime)
+        hdr = 'Area = {0:s} [cm^2]\n'.format(self.area)
+        hdr = hdr + 'I&V vs t = {0:b}\n'.format(self.saveTime)
+        hdr = hdr + 'sweepUp = {0:b}\n'.format(self.sweepUp)
         if not self.saveTime:#only save iv data
             hdr = hdr+'Voltage [V],Current [A]'
             self.rawData = self.rawData[:,(0,1)]
@@ -158,7 +150,20 @@ class postProcessThread(QThread):
         saveDestination = self.savePath+'_'+str(int(time.time()))+'.csv'
         self.tempFile.copy(saveDestination)
         self.tempFile.remove()
+        
+        parameters = {'00_nSamples': len(t), \
+                      '01_pMaxRaw[mW]': pmaxRaw*1000, \
+                      '02_worstSpeed[Hz]': 1/maxdt, \
+                      '03_worstSpeed[ms]':  maxdt*1000, \
+                      '04_bestSpeed[Hz]': 1/mindt, \
+                      '05_bestSpeed[ms]':  mindt*1000, \
+                      '06_meanSpeed[Hz]': 1/meandt, \
+                      '07_meanSpeed[ms]':  meandt*1000}
+        if self.debug:
+            pp.pprint(parameters)        
         self.postProcessingComplete.emit()
+        
+        
                     
 
 class readRealTimeDataThread(QThread):
@@ -206,6 +211,7 @@ class instrumentDetectThread(QThread):
 class MainWindow(QMainWindow):
     sweepVaribles = pyqtSignal(float,np.ndarray,str)
     #killSweepNow = pyqtSignal()
+    sweepUp = True
     def __init__(self):
         QMainWindow.__init__(self)
         
@@ -479,13 +485,16 @@ class MainWindow(QMainWindow):
     
                 #calculate sweep parameters from data in gui elements
                 self.ui.outputCheck.setChecked(True)
-                #tTot = float(self.ui.totalTimeSpin.value())
                 nPoints = float(self.ui.totalPointsSpin.value())
                 start = float(self.ui.startSpin.value())/1000
                 end = float(self.ui.endSpin.value())/1000
+                
+                if start <= end:
+                    self.sweepUp = True
+                else:
+                    self.sweepUp = False
     
                 #sweep parameters
-                #dt = tTot/nPoints
                 dt = self.ui.delaySpinBox.value()
                 sweepValues = np.linspace(start,end,nPoints)
     
@@ -534,6 +543,8 @@ class MainWindow(QMainWindow):
         self.postProcessThread.savePath = os.path.join(str(self.ui.dirEdit.text()),str(self.ui.fileEdit.text()))
         
         self.postProcessThread.tempFile = QTemporaryFile()
+        
+        self.postProcessThread.sweepUp = self.sweepUp
         
         self.postProcessThread.start()
         self.postProcessThread.start()
