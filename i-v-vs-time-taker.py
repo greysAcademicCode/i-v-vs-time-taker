@@ -163,8 +163,17 @@ class postProcessThread(QThread):
             pp.pprint(parameters)        
         self.postProcessingComplete.emit()
         
-        
-                    
+class ivDataThread(QThread):
+    rawData = []
+    postData = pyqtSignal(np.ndarray) #send away the data collected here
+    def __init__(self, taskQ, doneQ, parent=None):
+        QThread.__init__(self, parent)
+        self.taskQ = taskQ#gpib done queue
+        self.doneQ = doneQ#gpib done queue
+    def run(self):
+        self.taskQ.put(('read_values',()))
+        rawData = np.array(self.doneQ.get())
+        self.postData.emit(rawData)
 
 class readRealTimeDataThread(QThread):
     rawData = []
@@ -176,9 +185,6 @@ class readRealTimeDataThread(QThread):
     def updatePoints(self,nPoints):
         self.pointsToCollect = nPoints
     def run(self):
-        #clean out any remnants:
-        for i in range(self.q.qsize()):
-            self.q.get()
         self.rawData = []
         collected = 0
         while True:
@@ -488,6 +494,7 @@ class MainWindow(QMainWindow):
                 nPoints = float(self.ui.totalPointsSpin.value())
                 start = float(self.ui.startSpin.value())/1000
                 end = float(self.ui.endSpin.value())/1000
+                step = (end - start)/nPoints
                 
                 if start <= end:
                     self.sweepUp = True
@@ -504,11 +511,34 @@ class MainWindow(QMainWindow):
                 #send sweep parameters to the sweep thread
                 self.sweepVaribles.emit(dt,sweepValues,self.source)
                 self.sweeping = True
-    
-                #start sweeping and measuring
-                self.readRealTimeDataThread.start()
-                self.measureThread.start()
-                self.sweepThread.start()
+                
+                if self.ui.saveModeCombo.currentIndex() == 0: #this is an I,V vs t sweep
+                    #start sweeping and measuring
+                    self.readRealTimeDataThread.start()
+                    self.measureThread.start()
+                    self.sweepThread.start()
+                else: # this is an I vs V sweep
+                    #self.k.write('*rst')
+                    self.k.write(":output on")
+                    self.k.write(':source:'+self.source+':mode sweep')
+                    self.k.write(':source:'+self.source+':start {0:.3f}'.format(start))
+                    self.k.write(':source:'+self.source+':stop {0:.3f}'.format(end))
+                    self.k.write(':source:'+self.source+':step {0:.3f}'.format(step)) 
+                    self.k.write(':source:sweep:spacing linear')
+                    self.k.write(':source:sweep:points {0:d}'.format(int(nPoints)))
+                    self.k.write(':source:sweep:ranging best')
+                    self.k.write(':trigger:count {0:d}'.format(int(nPoints)))
+                    self.k.write(":source:delay {0:0.3f}".format(dt))
+                    
+                    #self.k.task_queue.put(('read',()))
+                    #self.k.task_queue.put(('read_values',()))
+                    #pp.pprint(self.k.done_queue.get())
+                    
+                    
+                    #self.k.task_queue.put(('ask',(':source:'+self.source+':step?',)))
+                    #print self.k.done_queue.get(block=True,timeout=5)                      
+                    
+                    self.ivDataThread.start()
     
                 self.ui.sweepButton.setText('Abort Sweep')
     
@@ -517,19 +547,15 @@ class MainWindow(QMainWindow):
                 self.ui.statusbar.showMessage("Sweep aborted",self.messageDuration)
                 if hasattr(self,'timerA') and self.timerA.isActive():
                     self.sweepThread.terminate()
-                    self.measureThread.terminate()
-                    self.measureThread.measureDone.emit(0)
+                    self.measureThread.timeToDie()
                     self.timerA.stop()
                     self.timerB.stop()
                     self.timerC.stop()
                     #gpib().clearInterface()
-                    self.doSweepComplete()
                 else:#sweep dealy tiemrs are not running, we're mid-sweep, send the kill signal
                     self.ui.sweepButton.setEnabled(False)
-                    self.measureThread.terminate()
                     self.sweepThread.terminate()
-                    self.measureThread.measureDone.emit(0)
-                    self.doSweepComplete()
+                    self.measureThread.timeToDie()
 
 
     def saveOutputFile(self):
@@ -554,10 +580,12 @@ class MainWindow(QMainWindow):
 
     def initialSetup(self):
         try:
-            #self.collectAndSaveDataThread  = collectAndSaveDataThread(self.k.done_queue)
-
             #create the post processing thread and give it the keithley's done queue so that it can pull data from it
             self.postProcessThread = postProcessThread()
+            
+            self.ivDataThread = ivDataThread(self.k.task_queue,self.k.done_queue)
+            self.ivDataThread.postData.connect(self.postProcessThread.acceptNewData)
+            self.ivDataThread.postData.connect(self.doSweepComplete)                
 
             #create the measurement thread and give it the keithley's task queue so that it can issue commands to it
             self.measureThread = measureThread(self.k.task_queue)
@@ -642,7 +670,7 @@ class MainWindow(QMainWindow):
             self.k.write('*cls')
             self.k.task_queue.put(('ask',('*idn?',)))
             try:
-                ident = self.k.done_queue.get(block=True,timeout=1)
+                ident = self.k.done_queue.get(block=True,timeout=10)
                 self.ui.statusbar.showMessage("Connected to " + ident,self.messageDuration)
             except:
                 ident = []
@@ -824,10 +852,7 @@ class MainWindow(QMainWindow):
             
         try:
             #self.killSweepNow.emit()
-            self.sweepThread.quit()
-            self.measureThread.quit()
-            self.readRealTimeDataThread.quit()            
-            self.doSweepComplete()
+            self.sweepThread.terminate()
         except:
             pass
         
