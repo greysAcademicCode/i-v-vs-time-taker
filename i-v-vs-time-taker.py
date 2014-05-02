@@ -315,7 +315,6 @@ class MainWindow(QMainWindow):
         try:
             print request
             self.k.write('source:'+self.source+' {0:.3f}'.format(request))
-            #self.k.write(':source:'+self.source+':range {0:.5f}'.format(request))
             self.k.task_queue.put(('read_raw',()))
             data = qBinRead(self.k.done_queue)
             return (data[0]*(data[1]-currentFudge))
@@ -343,7 +342,7 @@ class MainWindow(QMainWindow):
         currentSourceRange = 0.1 # operate between +/- 100ma
         if self.sourceUnit == 'V': 
             self.k.write(':source:'+self.source+':range {0:.3f}'.format(voltageSourceRange))
-            initialGuess = 1
+            initialGuess = 0.7
         else:
             self.k.write(':source:'+self.source+':range {0:.3f}'.format(currentSourceRange))
             initialGuess = 0.01 # no idea if this is right
@@ -358,7 +357,7 @@ class MainWindow(QMainWindow):
         
         for i in range(int(nPoints)):
             #optResults = optimize.minimize(self.invPower,initialGuess,method='COBYLA',bounds=(bnds,),tol=1e-4)
-            optResults = optimize.minimize(self.invPower,initialGuess,method='COBYLA',tol=1e-4)
+            optResults = optimize.minimize(self.invPower,initialGuess,method='COBYLA',tol=1e-4,rhobeg=0.2)
             print optResults.message
             print optResults.status
             answer = float(optResults.x)
