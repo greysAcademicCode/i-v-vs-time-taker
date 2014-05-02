@@ -14,8 +14,10 @@ except:
     gotGPIB = False
     print "Could not import GPIB"
 
+import pprint
+pp = pprint.PrettyPrinter(indent=4)
 import math
-from PyQt4.QtCore import QString, QThread, pyqtSignal, QTimer, QSettings, QTemporaryFile, QFile
+from PyQt4.QtCore import QString, QThread, pyqtSignal, QTimer, QSettings, QTemporaryFile, QIODevice
 from PyQt4.QtGui import QApplication, QDialog, QMainWindow, QFileDialog, QMessageBox
 from ivSweeperUI import Ui_IVSweeper
 from collections import OrderedDict
@@ -46,22 +48,22 @@ def qBinRead(q):
 #here we have the thread that generates the commands that advance the source value during the sweep
 class sweepThread(QThread):
     updateProgress = pyqtSignal(float)
-    sweepComplete = pyqtSignal(bool) #indicates sweep is complete, carries True if it was a premature termination
+    sweepComplete = pyqtSignal() #indicates sweep is complete
 
     def __init__(self, q, parent=None):
         QThread.__init__(self, parent)
 
         self.q = q #gpib command queue
 
-        self.prematureTermination = False
+        #self.prematureTermination = False
 
     def updateVariables(self,dt,sweepPoints,sourceName):
         self.dt = dt
         self.sweepPoints = sweepPoints
         self.sourceName = sourceName
 
-    def earlyKill(self):
-        self.prematureTermination = True
+    #def earlyKill(self):
+    #    self.prematureTermination = True
 
     def run(self):
         i = float(0)
@@ -74,10 +76,10 @@ class sweepThread(QThread):
             self.q.put(('write',(':source:' + str(self.sourceName) + ' {0:.4f}'.format(point),)))
             time.sleep(self.dt)
             self.updateProgress.emit(i/nPoints*100)
-            if self.prematureTermination: #sweep termination only has time resolution of dt, oh well
-                break
-        self.sweepComplete.emit(self.prematureTermination)
-        self.prematureTermination = False
+            #if self.prematureTermination: #sweep termination only has time resolution of dt, oh well
+            #    break
+        self.sweepComplete.emit()
+        #self.prematureTermination = False
 
 #here we have the thread that generates the measurement request commands
 class measureThread(QThread): 
@@ -101,11 +103,17 @@ class measureThread(QThread):
                 self.q.put(('read',()))#TODO: is read_raw better here?
                 dataPoints = dataPoints + 1
         self.finishUpNow = False
-        self.measureDone.emit(dataPoints)
+        self.measureDone.emit(dataPoints) #here we signal how many data points will need to be collected
 
 class postProcessThread(QThread):
+    area = ''
+    tempFile = ''
+    saveTime = False
+    savePath = ''
     readyToProcess = pyqtSignal() #signal when we're ready to post process
-    debug = False
+    postProcessingComplete = pyqtSignal() #signal when we're ready to post process
+    debug = True
+    rawData = []
     def __init__(self, parent=None):
         QThread.__init__(self, parent)
 
@@ -114,6 +122,10 @@ class postProcessThread(QThread):
         self.readyToProcess.emit()
 
     def run(self):
+        self.tempFile.open()
+        self.tempFile.close()
+        tempFileName = str(self.tempFile.fileName())
+        
         v = self.rawData[:,0]
         i = self.rawData[:,1]
         t = self.rawData[:,2]
@@ -134,63 +146,49 @@ class postProcessThread(QThread):
                       '06_meanSpeed[Hz]': 1/meandt, \
                       '07_meanSpeed[ms]':  meandt*1000}
         if self.debug:
-            print parameters
-            
+            pp.pprint(parameters)
+        
+        hdr = 'Area = {0:s} [cm^2]\nI&V vs t = {1:b}\n'.format(self.area, self.saveTime)
+        if not self.saveTime:#only save iv data
+            hdr = hdr+'Voltage [V],Current [A]'
+            self.rawData = self.rawData[:,(0,1)]
+        else:
+            hdr = hdr+'Voltage [V],Current [A],Time[s],Status'
+        np.savetxt(tempFileName, self.rawData, delimiter=",",header=hdr)
+        saveDestination = self.savePath+'_'+str(int(time.time()))+'.csv'
+        self.tempFile.copy(saveDestination)
+        self.tempFile.remove()
+        self.postProcessingComplete.emit()
+                    
 
-#here we have the thread that picks the data out of the visa done queue readies it for public consumption, and sends it to the post processor
-class collectAndSaveDataThread(QThread):
-    area = ''
-    tempFile = ''
-    saveTime = False
-    savePath = ''
-    needToCollect = 0 
-    dataCollectionDone = pyqtSignal() #signal when we've collected the final data point
+class readRealTimeDataThread(QThread):
+    rawData = []
+    pointsToCollect = np.inf
     postData = pyqtSignal(np.ndarray) #send away the data collected here
     def __init__(self, q, parent=None):
         QThread.__init__(self, parent)
-
-        self.q = q #gpib done queue
-        self.prematureTermination = False
-
-    def earlyKill(self):
-        self.prematureTermination = True
-
+        self.q = q#gpib done queue
+    def updatePoints(self,nPoints):
+        self.pointsToCollect = nPoints
     def run(self):
-        saveDestination = self.savePath+'_'+str(int(time.time()))+'.csv';
-        self.tempFile.open()
-        self.tempFile.close()
-        tempFileName = str(self.tempFile.fileName())
-        
-        data = [None]*self.needToCollect
-        
-        #get all the binary data from the done queue here
-        for i in range(self.needToCollect): 
-            data[i] = qBinRead(self.q)
+        #clean out any remnants:
+        for i in range(self.q.qsize()):
+            self.q.get()
+        self.rawData = []
+        collected = 0
+        while True:
+            newData = qBinRead(self.q)
+            self.rawData.append(newData)
+            collected = collected + 1
+            if collected >= self.pointsToCollect:
+                break
 
-        #signal that we're done
-        self.dataCollectionDone.emit()
-
-        if (len(data) >2) and not self.prematureTermination:
-            #convert to array:
-            data = np.array(data)
-
-            #sort it by time(the 3rd col), because who knows what order we got it
-            data = data[data[:,2].argsort()]
+        self.pointsToCollect = np.inf
+        if (len(self.rawData) >2):
+            arrayData = np.array(self.rawData)
+            arrayData = arrayData[arrayData[:,2].argsort()]
+            self.postData.emit(arrayData)
             
-            hdr = 'Area = {0:s} [cm^2]\nI&V vs t = {1:b}\n'.format(self.area, self.saveTime)
-            self.postData.emit(data)
-            if not self.saveTime:#only save iv data
-                hdr = hdr+'Voltage [V],Current [A]'
-                data = data[:,(0,1)]
-            else:
-                hdr = hdr+'Voltage [V],Current [A],Time[s],Status'
-            np.savetxt(tempFileName, data, delimiter=",",header=hdr)
-            self.tempFile.rename(saveDestination)
-
-        self.prematureTermination = False
-
-
-
 #here we have the thread that searches the bus for instruments
 class instrumentDetectThread(QThread):
     foundInstruments = pyqtSignal(list) #signal containing list instruments we've found
@@ -207,7 +205,7 @@ class instrumentDetectThread(QThread):
 #this is the main gui window
 class MainWindow(QMainWindow):
     sweepVaribles = pyqtSignal(float,np.ndarray,str)
-    killSweepNow = pyqtSignal()
+    #killSweepNow = pyqtSignal()
     def __init__(self):
         QMainWindow.__init__(self)
         
@@ -391,20 +389,26 @@ class MainWindow(QMainWindow):
                 #start these after the user specified delay
                 self.timerA = QTimer()
                 self.timerB = QTimer()
+                self.timerC = QTimer()
+                self.timerC.timeout.connect(self.readRealTimeDataThread.start)
+                self.timerC.setSingleShot(True)                   
                 self.timerA.timeout.connect(self.measureThread.start)
                 self.timerA.setSingleShot(True)
                 self.timerB.timeout.connect(self.sweepThread.start)
                 self.timerB.setSingleShot(True)
                 self.timerA.start(sleepMS)
                 self.timerB.start(sleepMS)
+                self.timerC.start(sleepMS)
 
                 self.ui.statusbar.showMessage("Sleeping for {0:.1f} s before next scan".format(float(sleepMS)/1000),sleepMS)
             else: #no delay, don't use timers
+                self.readRealTimeDataThread.start()
                 self.measureThread.start()
                 self.sweepThread.start()
 
         else:#we're done sweeping
             self.sweeping = False
+            self.ui.progress.setValue(0)
 
             #enable controls now that the sweep is complete
             self.ui.terminalsGroup.setEnabled(True)
@@ -420,7 +424,9 @@ class MainWindow(QMainWindow):
             self.ui.outputCheck.setChecked(False)
             self.k.write(':source:' + self.source + ' {0:.4f}'.format(float(self.ui.startSpin.value())/1000))
             #self.k.write(':display:enable on')#this makes the device more responsive
-
+            
+        
+        
     #update progress bar
     def updateProgress(self, value):
         self.ui.progress.setValue(value)
@@ -491,6 +497,7 @@ class MainWindow(QMainWindow):
                 self.sweeping = True
     
                 #start sweeping and measuring
+                self.readRealTimeDataThread.start()
                 self.measureThread.start()
                 self.sweepThread.start()
     
@@ -500,41 +507,58 @@ class MainWindow(QMainWindow):
                 self.sweeping = False
                 self.ui.statusbar.showMessage("Sweep aborted",self.messageDuration)
                 if hasattr(self,'timerA') and self.timerA.isActive():
+                    self.sweepThread.terminate()
+                    self.measureThread.terminate()
+                    self.measureThread.measureDone.emit(0)
                     self.timerA.stop()
                     self.timerB.stop()
+                    self.timerC.stop()
+                    #gpib().clearInterface()
                     self.doSweepComplete()
                 else:#sweep dealy tiemrs are not running, we're mid-sweep, send the kill signal
-                    self.killSweepNow.emit()
+                    self.ui.sweepButton.setEnabled(False)
+                    self.measureThread.terminate()
+                    self.sweepThread.terminate()
+                    self.measureThread.measureDone.emit(0)
+                    self.doSweepComplete()
 
-    def saveOutputFile(self,nDataPoints):
-        self.collectAndSaveDataThread.needToCollect = nDataPoints
+
+    def saveOutputFile(self):
+        #TODO: save sweep direction
         if self.ui.saveModeCombo.currentIndex() == 0:
-            self.collectAndSaveDataThread.saveTime = True # we're in I,V vs t mode
+            self.postProcessThread.saveTime = True # we're in I,V vs t mode
         else:
-            self.collectAndSaveDataThread.saveTime = False  # we're in I vs V mode
-        self.collectAndSaveDataThread.area = str(self.ui.deviceAreaEdit.text())
+            self.postProcessThread.saveTime = False  # we're in I vs V mode
+        self.postProcessThread.area = str(self.ui.deviceAreaEdit.text())
         
-        self.collectAndSaveDataThread.savePath = os.path.join(str(self.ui.dirEdit.text()),str(self.ui.fileEdit.text()))
+        self.postProcessThread.savePath = os.path.join(str(self.ui.dirEdit.text()),str(self.ui.fileEdit.text()))
         
-        self.collectAndSaveDataThread.tempFile = QTemporaryFile()
+        self.postProcessThread.tempFile = QTemporaryFile()
         
-        self.collectAndSaveDataThread.start()
+        self.postProcessThread.start()
+        self.postProcessThread.start()
+        
+    def processingDone(self):
+        self.ui.sweepButton.setEnabled(True)
 
     def initialSetup(self):
         try:
-            self.collectAndSaveDataThread  = collectAndSaveDataThread(self.k.done_queue)
+            #self.collectAndSaveDataThread  = collectAndSaveDataThread(self.k.done_queue)
 
             #create the post processing thread and give it the keithley's done queue so that it can pull data from it
             self.postProcessThread = postProcessThread()
 
             #create the measurement thread and give it the keithley's task queue so that it can issue commands to it
             self.measureThread = measureThread(self.k.task_queue)
+            
+            #create the data reading thread and give it the keithley's done queue so that it can grab data from it
+            self.readRealTimeDataThread = readRealTimeDataThread(self.k.done_queue)
 
             #create the sweep thread and give it the keithley's task queue so that it can issue commands to it
             self.sweepThread = sweepThread(self.k.task_queue)
 
             #self.measureThread.measureDone.connect(self.collectDataThread.catchPointNumber)
-            self.measureThread.measureDone.connect(self.saveOutputFile)
+            self.measureThread.measureDone.connect(self.readRealTimeDataThread.updatePoints)
             #self.collectDataThread.readyToCollect.connect(self.collectDataThread.start)
 
             #now connect  all the signals associated with these threads:
@@ -542,21 +566,26 @@ class MainWindow(QMainWindow):
             self.sweepThread.updateProgress.connect(self.updateProgress)
 
             #update gui and shut off the output only when the last data point has been collected properly
-            self.collectAndSaveDataThread.dataCollectionDone.connect(self.doSweepComplete)
+            #self.collectAndSaveDataThread.dataCollectionDone.connect(self.doSweepComplete)
 
-            self.collectAndSaveDataThread.postData.connect(self.postProcessThread.acceptNewData)
-
-            self.postProcessThread.readyToProcess.connect(self.postProcessThread.start)
+            #here the collected data is sent to the post processing thread
+            self.readRealTimeDataThread.postData.connect(self.postProcessThread.acceptNewData)
+            self.readRealTimeDataThread.postData.connect(self.doSweepComplete)
+            
+            #here the post process thread signals that it has the data and it's ready to start processing 
+            self.postProcessThread.readyToProcess.connect(self.saveOutputFile)
 
             #tell the measurement to stop when the sweep is done
             self.sweepThread.sweepComplete.connect(self.measureThread.timeToDie)
 
             #give the new user entered sweep variables to the sweep thread
             self.sweepVaribles.connect(self.sweepThread.updateVariables)
+            
+            self.postProcessThread.postProcessingComplete.connect(self.processingDone)
 
             #kill sweep early on user request
-            self.killSweepNow.connect(self.sweepThread.earlyKill)
-            self.killSweepNow.connect(self.collectAndSaveDataThread.earlyKill)
+            #self.killSweepNow.connect(self.sweepThread.earlyKill)
+            #self.killSweepNow.connect(self.collectAndSaveDataThread.earlyKill)
             #TODO: should immediately stop threads and purge queue on user cancel
 
             self.k.write(":format:data sreal")
@@ -783,13 +812,17 @@ class MainWindow(QMainWindow):
             pass
             
         try:
-            self.killSweepNow.emit()
+            #self.killSweepNow.emit()
+            self.sweepThread.quit()
+            self.measureThread.quit()
+            self.readRealTimeDataThread.quit()            
             self.doSweepComplete()
         except:
             pass
         
         try:
             self.k.task_queue.put(('clear',()))
+            gpib().clearInterface()
             self.k.write(':abort')
             self.k.write(':arm:count 1')
             self.k.write(":display:enable on")

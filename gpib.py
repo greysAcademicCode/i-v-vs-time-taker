@@ -42,7 +42,7 @@ class gpib:
         self.locationString = locationString
         self.timeout = timeout
         self.useQueues = useQueues
-        
+
         if self.locationString is not None:
             if self.useQueues: #queue mode
                 #build the queues
@@ -53,7 +53,7 @@ class gpib:
                 self.p.start()
             else:#non-queue mode
                 self.v = visa.instrument(self.locationString,timeout=self.timeout,chunk_size=self.chunk_size,delay=self.delay,values_format=self.values_format)
-                
+
     def __del__(self):
         if self.useQueues:
             if self.p.is_alive():
@@ -67,13 +67,10 @@ class gpib:
             if hasattr(self,'v'):
                 self.v.close()
 
-    def findInstruments(self):
-        return visa.get_instruments_list()
-        
     def _worker(self, inputQ, outputQ):
         #local, threadsafe instrument object created here
         v = visa.instrument(self.locationString,timeout=self.timeout,chunk_size=self.chunk_size,delay=self.delay,values_format=self.values_format) 
-                
+
         for func, args in iter(inputQ.get, 'STOP'):#queue processing going on here
             try:
                 toCall = getattr(v,func)
@@ -86,7 +83,6 @@ class gpib:
         v.close()
         inputQ.close()
         outputQ.close()
-        
 
     #make queue'd and non-queued writes look the same to the client
     def write(self,string):
@@ -94,3 +90,9 @@ class gpib:
             self.task_queue.put(('write',(string,)))
         else:
             self.v.write(string)
+
+    def clearInterface(self):
+        visa.Gpib().send_ifc()
+
+    def findInstruments(self):
+        return visa.get_instruments_list()    
