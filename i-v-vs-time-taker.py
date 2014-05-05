@@ -357,7 +357,7 @@ class MainWindow(QMainWindow):
         
         for i in range(int(nPoints)):
             #optResults = optimize.minimize(self.invPower,initialGuess,method='COBYLA',bounds=(bnds,),tol=1e-4)
-            optResults = optimize.minimize(self.invPower,initialGuess,method='COBYLA',tol=1e-4,rhobeg=0.2)
+            optResults = optimize.minimize(self.invPower,initialGuess,method='COBYLA',tol=1e-4,'rhobeg'=0.2)
             print optResults.message
             print optResults.status
             answer = float(optResults.x)
