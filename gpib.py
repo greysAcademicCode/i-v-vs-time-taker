@@ -69,8 +69,7 @@ class gpib:
 
     def _worker(self, inputQ, outputQ):
         #local, threadsafe instrument object created here
-        v = visa.instrument(self.locationString,timeout=self.timeout,chunk_size=self.chunk_size,delay=self.delay,values_format=self.values_format) 
-
+        v = visa.instrument(self.locationString,timeout=self.timeout,chunk_size=self.chunk_size,delay=self.delay,values_format=self.values_format)
         for func, args in iter(inputQ.get, 'STOP'):#queue processing going on here
             try:
                 toCall = getattr(v,func)
@@ -90,6 +89,10 @@ class gpib:
             self.task_queue.put(('write',(string,)))
         else:
             self.v.write(string)
+
+    #controls remote enable line
+    def controlRen(self,mode):
+        visa.Gpib()._vpp43.gpib_control_ren(mode)
 
     def clearInterface(self):
         visa.Gpib().send_ifc()

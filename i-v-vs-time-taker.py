@@ -126,7 +126,6 @@ class postProcessThread(QThread):
         self.tempFile.open()
         self.tempFile.close()
         tempFileName = str(self.tempFile.fileName())
-        
         v = self.rawData[:,0]
         i = self.rawData[:,1]
         t = self.rawData[:,2]
@@ -137,6 +136,7 @@ class postProcessThread(QThread):
         meandt = np.mean(diffs)
         maxdt = np.max(diffs)
         mindt = np.min(diffs)
+        
         
         hdr = 'Area = {0:s} [cm^2]\n'.format(self.area)
         hdr = hdr + 'I&V vs t = {0:b}\n'.format(self.saveTime)
@@ -160,8 +160,10 @@ class postProcessThread(QThread):
                       '06_meanSpeed[Hz]': 1/meandt, \
                       '07_meanSpeed[ms]':  meandt*1000}
         if self.debug:
-            pp.pprint(parameters)        
+            pp.pprint(parameters)
+        self.rawData = []
         self.postProcessingComplete.emit()
+        
         
 class ivDataThread(QThread):
     rawData = []
@@ -173,7 +175,7 @@ class ivDataThread(QThread):
     def run(self):
         self.taskQ.put(('read_values',()))
         rawData = np.array(self.doneQ.get())
-        self.postData.emit(rawData)
+        self.postData.emit(rawData.reshape((-1,4)))
 
 class readRealTimeDataThread(QThread):
     rawData = []
@@ -218,6 +220,7 @@ class MainWindow(QMainWindow):
     sweepVaribles = pyqtSignal(float,np.ndarray,str)
     #killSweepNow = pyqtSignal()
     sweepUp = True
+    userWantsOn = False #the user wants the output off
     def __init__(self):
         QMainWindow.__init__(self)
         
@@ -258,17 +261,45 @@ class MainWindow(QMainWindow):
         self.ui.startSpin.valueChanged.connect(self.setStart)
         self.ui.endSpin.valueChanged.connect(self.setSourceRange)
         self.ui.outputCheck.toggled.connect(self.setOutput)
-        #self.ui.totalTimeSpin.valueChanged.connect(self.totalTimeCall)
-        self.ui.delaySpinBox.valueChanged.connect(self.totalTimeCall)
-        self.ui.totalPointsSpin.valueChanged.connect(self.totalPointsCall)
+        self.ui.delaySpinBox.valueChanged.connect(self.updateDeltaText)
+        self.ui.totalPointsSpin.valueChanged.connect(self.updateDeltaText)
         self.ui.reverseButton.clicked.connect(self.reverseCall)
         self.ui.actionRun_Test_Code.triggered.connect(self.testArea)
         self.ui.instrumentCombo.activated.connect(self.handleICombo)
+        self.ui.saveModeCombo.currentIndexChanged.connect(self.handleModeCombo)
         
         self.ui.browseButton.clicked.connect(self.browseButtonCall)
+        self.ui.outputCheck.clicked.connect(self.toggleWhatUserWants)
 
         #TODO: load state here
         #self.restoreState(self.settings.value('guiState').toByteArray())
+        
+    #this keeps track of clicks on the output/on off box
+    def toggleWhatUserWants(self):
+        self.userWantsOn = not self.userWantsOn
+
+    def handleModeCombo(self):
+        dt = self.ui.delaySpinBox.value()
+        if self.ui.saveModeCombo.currentIndex() == 0: #i,v vs t mode
+            startValue = float(self.ui.startSpin.value())
+            endValue = float(self.ui.endSpin.value())
+            span = abs(endValue-startValue)+1
+            self.ui.totalPointsSpin.setMaximum(span)
+            self.ui.totalPointsSpin.setMinimum(1)
+
+            self.sendCmd(":source:delay 0")
+            self.sendCmd(':source:'+self.source+':mode fixed')
+            self.sendCmd(':trigger:count 1')
+        else: #traditional i vs v mode
+            self.ui.totalPointsSpin.setMaximum(2500) #standard sweeps can be at most 2500 points long (keithley limitation)
+            self.ui.totalPointsSpin.setMinimum(2)
+            self.sendCmd(":source:delay {0:0.3f}".format(dt))
+            self.sendCmd(':source:'+self.source+':mode sweep')
+            
+            nPoints = float(self.ui.totalPointsSpin.value())
+            self.sendCmd(':trigger:count {0:d}'.format(int(nPoints)))
+            
+        
         
     def catchList(self,resourceNames):
         for i in range(self.ui.instrumentCombo.count()):
@@ -314,8 +345,8 @@ class MainWindow(QMainWindow):
         
         try:
             print request
-            self.k.write('source:'+self.source+' {0:.3f}'.format(request))
-            self.k.task_queue.put(('read_raw',()))
+            self.sendCmd('source:'+self.source+' {0:.3f}'.format(request))
+            self.k.task_queue.put(('read_raw',())) #TODO: this should be split to another function
             data = qBinRead(self.k.done_queue)
             return (data[0]*(data[1]-currentFudge))
         except:
@@ -326,25 +357,22 @@ class MainWindow(QMainWindow):
     def handleShutter(self):
         shutterOnValue = '14'
         shutterOffValue = '15'
-        try:
-            self.k.task_queue.put(('ask',(':source2:ttl:actual?',)))
-            outStatus = self.k.done_queue.get()
-            if outStatus == shutterOnValue:
-                self.k.write(":source2:ttl " + shutterOffValue)
-            else:
-                self.k.write(":source2:ttl " + shutterOnValue)
-        except:
-            self.ui.statusbar.showMessage("Error: Not connected",self.messageDuration)
+        self.k.task_queue.put(('ask',(':source2:ttl:actual?',))) #TODO: this should be split to another function
+        outStatus = self.k.done_queue.get()
+        if outStatus == shutterOnValue:
+            self.sendCmd(":source2:ttl " + shutterOffValue)
+        else:
+            self.sendCmd(":source2:ttl " + shutterOnValue)
     
     #TODO: move this to its own thread
     def maxPowerDwell(self):
         voltageSourceRange = 3 # operate between +/- 3V
         currentSourceRange = 0.1 # operate between +/- 100ma
         if self.sourceUnit == 'V': 
-            self.k.write(':source:'+self.source+':range {0:.3f}'.format(voltageSourceRange))
+            self.sendCmd(':source:'+self.source+':range {0:.3f}'.format(voltageSourceRange))
             initialGuess = 0.7
         else:
-            self.k.write(':source:'+self.source+':range {0:.3f}'.format(currentSourceRange))
+            self.sendCmd(':source:'+self.source+':range {0:.3f}'.format(currentSourceRange))
             initialGuess = 0.01 # no idea if this is right
 
         dt = self.ui.delaySpinBox.value()
@@ -361,7 +389,7 @@ class MainWindow(QMainWindow):
             print optResults.status
             answer = float(optResults.x)
             initialGuess = answer
-            self.k.write(":SYST:KEY 23") #go into local mode for live display update
+            self.sendCmd(":SYST:KEY 23") #go into local mode for live display update
             print "Optimized! Mpp Voltage: {0:.3f}".format(answer)
             print "Now sleeping for {0:.1f} seconds".format(dt)
             time.sleep(dt)
@@ -369,8 +397,8 @@ class MainWindow(QMainWindow):
             data = qBinRead(self.k.done_queue)        
             #vi = (data[0], data[1], data[1]*data[0]*1000/.4*-1)
             print 'Max Power: {0:.3f}% '.format(data[0]*data[1]*1000/float(self.ui.deviceAreaEdit.text()))
-        self.ui.outputCheck.setChecked(False)
-        self.ui.speedCombo.setCurrentIndex(oldSpeedIndex)        
+        self.ui.outputCheck.setChecked(self.userWantsOn)
+        self.ui.speedCombo.setCurrentIndex(oldSpeedIndex)
 
     def testArea(self):
         print('Running test code now')
@@ -388,33 +416,23 @@ class MainWindow(QMainWindow):
     #do these things when a sweep completes (or is canceled by the user)
     def doSweepComplete(self):
         if self.ui.sweepContinuallyGroup.isChecked() and self.sweeping: #in continual sweep mode, perform another sweep
-            self.k.write(':source:' + self.source + ' {0:.4f}'.format(float(self.ui.startSpin.value())/1000))
+            self.sendCmd(':source:' + self.source + ' {0:.4f}'.format(float(self.ui.startSpin.value())/1000))
             if self.ui.displayBlankCheck.isChecked():
-                self.k.write(':display:enable off')#this makes the device more responsive
+                self.sendCmd(':display:enable off')#this makes the device more responsive
             else:
-                self.k.write(':display:enable on')#this makes the device more responsive
+                self.sendCmd(':display:enable on')#this makes the device more responsive
 
             sleepMS = int(self.ui.scanRecoverySpin.value()*1000)
             if sleepMS > 0:
                 #start these after the user specified delay
-                self.timerA = QTimer()
-                self.timerB = QTimer()
-                self.timerC = QTimer()
-                self.timerC.timeout.connect(self.readRealTimeDataThread.start)
-                self.timerC.setSingleShot(True)                   
-                self.timerA.timeout.connect(self.measureThread.start)
+                self.timerA = QTimer()                
+                self.timerA.timeout.connect(self.initiateNewSweep)
                 self.timerA.setSingleShot(True)
-                self.timerB.timeout.connect(self.sweepThread.start)
-                self.timerB.setSingleShot(True)
                 self.timerA.start(sleepMS)
-                self.timerB.start(sleepMS)
-                self.timerC.start(sleepMS)
 
                 self.ui.statusbar.showMessage("Sleeping for {0:.1f} s before next scan".format(float(sleepMS)/1000),sleepMS)
             else: #no delay, don't use timers
-                self.readRealTimeDataThread.start()
-                self.measureThread.start()
-                self.sweepThread.start()
+                self.initiateNewSweep()
 
         else:#we're done sweeping
             self.sweeping = False
@@ -431,11 +449,10 @@ class MainWindow(QMainWindow):
             self.ui.addressGroup.setEnabled(True)
 
             self.ui.sweepButton.setText('Start Sweep')
-            self.ui.outputCheck.setChecked(False)
-            self.k.write(':source:' + self.source + ' {0:.4f}'.format(float(self.ui.startSpin.value())/1000))
-            #self.k.write(':display:enable on')#this makes the device more responsive
             
-        
+            self.ui.outputCheck.setChecked(self.userWantsOn)
+            self.sendCmd(':source:' + self.source + ' {0:.4f}'.format(float(self.ui.startSpin.value())/1000))
+            #self.sendCmd(":SYST:KEY 23")
         
     #update progress bar
     def updateProgress(self, value):
@@ -461,17 +478,25 @@ class MainWindow(QMainWindow):
 
     #turn output on or off when output box in gui changes state
     def setOutput(self):
-        try:
-            if self.ui.outputCheck.isChecked():
-                self.k.write(":output on")
-                self.k.write(":SYST:KEY 23") #go into local mode for live display update
-            else:
-                self.k.write(":output off")
-        except:
-            self.ui.statusbar.showMessage("Error: Not connected",self.messageDuration)
+        if self.ui.outputCheck.isChecked():
+            self.sendCmd(":output on")
+            #self.sendCmd(":SYST:KEY 23") #go into local mode for live display update
+        else:
+            self.sendCmd(":output off")
+            
+    def initiateNewSweep(self):
+        if self.ui.saveModeCombo.currentIndex() == 0: #this is an I,V vs t sweep
+            #start sweeping and measuring
+            self.readRealTimeDataThread.start()
+            self.measureThread.start()
+            self.sweepThread.start()
+        else: # this is an I vs V sweep
+            self.sendCmd(':source:'+self.source+':mode sweep')
+            self.ivDataThread.start()        
 
     #do these things when the user presses the sweep button
     def manageSweep(self):
+        
         if self.ui.maxPowerCheck.isChecked():
             self.maxPowerDwell() #TODO this should go into the background
         else:
@@ -504,64 +529,38 @@ class MainWindow(QMainWindow):
                 sweepValues = np.linspace(start,end,nPoints)
     
                 if self.ui.displayBlankCheck.isChecked():
-                    self.k.write(':display:enable off')#this makes the device more responsive
+                    self.sendCmd(':display:enable off')#this makes the device more responsive
     
                 #send sweep parameters to the sweep thread
                 self.sweepVaribles.emit(dt,sweepValues,self.source)
                 self.sweeping = True
                 
-                if self.ui.saveModeCombo.currentIndex() == 0: #this is an I,V vs t sweep
-                    #start sweeping and measuring
-                    self.readRealTimeDataThread.start()
-                    self.measureThread.start()
-                    self.sweepThread.start()
-                else: # this is an I vs V sweep
-                    #self.k.write('*rst')
-                    self.k.write(":output on")
-                    self.k.write(':source:'+self.source+':mode sweep')
-                    self.k.write(':source:'+self.source+':start {0:.3f}'.format(start))
-                    self.k.write(':source:'+self.source+':stop {0:.3f}'.format(end))
-                    self.k.write(':source:'+self.source+':step {0:.3f}'.format(step)) 
-                    self.k.write(':source:sweep:spacing linear')
-                    self.k.write(':source:sweep:points {0:d}'.format(int(nPoints)))
-                    self.k.write(':source:sweep:ranging best')
-                    self.k.write(':trigger:count {0:d}'.format(int(nPoints)))
-                    self.k.write(":source:delay {0:0.3f}".format(dt))
-                    
-                    #self.k.task_queue.put(('read',()))
-                    #self.k.task_queue.put(('read_values',()))
-                    #pp.pprint(self.k.done_queue.get())
-                    
-                    
-                    #self.k.task_queue.put(('ask',(':source:'+self.source+':step?',)))
-                    #print self.k.done_queue.get(block=True,timeout=5)                      
-                    
-                    self.ivDataThread.start()
-    
+                self.initiateNewSweep()
                 self.ui.sweepButton.setText('Abort Sweep')
     
             else:#sweep cancelled mid-run by user
                 self.sweeping = False
                 self.ui.statusbar.showMessage("Sweep aborted",self.messageDuration)
+                self.ui.sweepButton.setEnabled(False)
                 if hasattr(self,'timerA') and self.timerA.isActive():
-                    self.sweepThread.terminate()
-                    self.measureThread.timeToDie()
                     self.timerA.stop()
                     self.timerB.stop()
                     self.timerC.stop()
-                    #gpib().clearInterface()
                 else:#sweep dealy tiemrs are not running, we're mid-sweep, send the kill signal
-                    self.ui.sweepButton.setEnabled(False)
-                    self.sweepThread.terminate()
-                    self.measureThread.timeToDie()
+                    if self.ui.saveModeCombo.currentIndex() == 0:# we're in I,V vs t mode
+                        self.sweepThread.terminate()
+                        self.measureThread.timeToDie()
+                    else: # we're in I vs V mode
+                        self.k.clearInterface()
+                        self.doSweepComplete()
 
 
     def saveOutputFile(self):
         #TODO: save sweep direction
-        if self.ui.saveModeCombo.currentIndex() == 0:
-            self.postProcessThread.saveTime = True # we're in I,V vs t mode
-        else:
-            self.postProcessThread.saveTime = False  # we're in I vs V mode
+        if self.ui.saveModeCombo.currentIndex() == 0:# we're in I,V vs t mode
+            self.postProcessThread.saveTime = True 
+        else:  # we're in I vs V mode
+            self.postProcessThread.saveTime = False
         self.postProcessThread.area = str(self.ui.deviceAreaEdit.text())
         
         self.postProcessThread.savePath = os.path.join(str(self.ui.dirEdit.text()),str(self.ui.fileEdit.text()))
@@ -570,7 +569,6 @@ class MainWindow(QMainWindow):
         
         self.postProcessThread.sweepUp = self.sweepUp
         
-        self.postProcessThread.start()
         self.postProcessThread.start()
         
     def processingDone(self):
@@ -625,26 +623,28 @@ class MainWindow(QMainWindow):
             #self.killSweepNow.connect(self.collectAndSaveDataThread.earlyKill)
             #TODO: should immediately stop threads and purge queue on user cancel
 
-            self.k.write(":format:data sreal")
-            self.k.write(':system:beeper:state 0')
+            self.sendCmd(":format:data sreal")
+            self.sendCmd(':system:beeper:state 0') #make this quiet
 
             #always measure current and voltage
-            self.k.write(':sense:function:concurrent on')
-
-            self.setMode() #sets output mode (current or voltage)
+            self.sendCmd(':sense:function:concurrent on')
 
             self.setTerminals()
             self.setWires()
-            self.k.write(":trace:feed:control never") #don't ever store data in buffer
+            self.sendCmd(":trace:feed:control never") #don't ever store data in buffer
             self.setZero()
 
-            self.k.write(':sense:average:tcontrol repeat') #repeating averaging (not moving)
+            self.sendCmd(':sense:average:tcontrol repeat') #repeating averaging (not moving)
             self.setAverage()
 
-            self.k.write(':format:elements time,voltage,current,status') #set data measurement elements
-            self.k.write(":source:delay 0")
-            self.k.write(':trigger:delay 0') 
-
+            self.sendCmd(':format:elements time,voltage,current,status') #set data measurement elements
+            self.sendCmd(':trigger:delay 0')
+            
+            self.sendCmd(':source:sweep:spacing linear')
+            self.sendCmd(':source:sweep:ranging best')
+            
+            self.setMode() #sets output mode (current or voltage)
+ 
             self.setOutput()
             return True
         except:
@@ -662,10 +662,10 @@ class MainWindow(QMainWindow):
             #now that the user has selected an address for the keithley, let's connect to it. we'll use the thread safe version of the visa/gpib interface since we have multiple threads here
             self.k = gpib(instrumentAddress,useQueues=True)
 
-            self.k.task_queue.put(('clear',()))
-            self.k.write(':abort')
-            self.k.write("*rst")
-            self.k.write('*cls')
+            #self.k.task_queue.put(('clear',()))
+            #self.sendCmd(':abort')
+            self.sendCmd("*rst")
+            #self.sendCmd('*cls')
             self.k.task_queue.put(('ask',('*idn?',)))
             try:
                 ident = self.k.done_queue.get(block=True,timeout=10)
@@ -720,79 +720,63 @@ class MainWindow(QMainWindow):
     def setCompliance(self):
         self.ui.outputCheck.setChecked(False)
         value = float(self.ui.complianceSpin.value())
-        try:
-            self.k.write(':sense:'+self.sense+':protection {0:.3f}'.format(value/1000))
-            self.k.write(':sense:'+self.sense+':range {0:.3f}'.format(value/1000))
-        except:
-            self.ui.statusbar.showMessage("Error: Not connected",self.messageDuration);
+        self.sendCmd(':sense:'+self.sense+':protection {0:.3f}'.format(value/1000))
+        self.sendCmd(':sense:'+self.sense+':range {0:.3f}'.format(value/1000))
+        self.ui.outputCheck.setChecked(self.userWantsOn)
 
     #tell keithely to change nplc and digits displayed when on gui speed change events
     def setSpeed(self):
         value = self.ui.speedCombo.currentIndex()
-        try:
-            if value is 0: #fast
-                self.k.write(':sense:'+self.sense+':nplcycles 0.01')
-                self.k.write(':display:digits 4')
-            elif value is 1: #med
-                self.k.write(':sense:'+self.sense+':nplcycles 0.1')
-                self.k.write(':display:digits 5')
-            elif value is 2: #normal
-                self.k.write(':sense:'+self.sense+':nplcycles 1')
-                self.k.write(':display:digits 6')
-            elif value is 3: #hi accuracy
-                self.k.write(':sense:'+self.sense+':nplcycles 10')
-                self.k.write(':display:digits 7')
-        except:
-            self.ui.statusbar.showMessage("Error: Not connected",self.messageDuration);    
+        if value is 0: #fast
+            self.sendCmd(':sense:'+self.sense+':nplcycles 0.01')
+            self.sendCmd(':display:digits 4')
+        elif value is 1: #med
+            self.sendCmd(':sense:'+self.sense+':nplcycles 0.1')
+            self.sendCmd(':display:digits 5')
+        elif value is 2: #normal
+            self.sendCmd(':sense:'+self.sense+':nplcycles 1')
+            self.sendCmd(':display:digits 6')
+        elif value is 3: #hi accuracy
+            self.sendCmd(':sense:'+self.sense+':nplcycles 10')
+            self.sendCmd(':display:digits 7')
 
     #tell keithely to change the internal averaging it does on gui average change events
     def setAverage(self):
         value = self.ui.averageSpin.value()
-        try:
-            if value is 0: #no averaging
-                self.k.write(':sense:average off')
-            else:
-                self.k.write(':sense:average on')
-                self.k.write(':sense:average:count {0}'.format(value))
-        except:
-            self.ui.statusbar.showMessage("Error: Not connected",self.messageDuration); 
+        if value is 0: #no averaging
+            self.sendCmd(':sense:average off')
+        else:
+            self.sendCmd(':sense:average on')
+            self.sendCmd(':sense:average:count {0}'.format(value))
 
     #tell keithley to enable/disable auto zero when the gui auto zero check box changes state
     def setZero(self):
-        try:
-            if self.ui.zeroCheck.isChecked():
-                self.k.write(":system:azero on")
-            else:
-                self.k.write(":system:azero off")
-        except:
-            self.ui.statusbar.showMessage("Error: Not connected",self.messageDuration);
+        if self.ui.zeroCheck.isChecked():
+            self.sendCmd(":system:azero on")
+        else:
+            self.sendCmd(":system:azero off")
 
     #do all the things needed when the source sweep range is changed
     def setSourceRange(self):
         startValue = float(self.ui.startSpin.value())
-        endValue = float(self.ui.endSpin.value())
-        span = abs(endValue-startValue)+1
-
-        self.ui.totalPointsSpin.setMaximum(span)
+        endValue = float(self.ui.endSpin.value())        
+        if self.ui.saveModeCombo.currentIndex() == 0: #only set max here if we're in i,v vs t mode
+            span = abs(endValue-startValue)+1
+            self.ui.totalPointsSpin.setMaximum(span)
+            
 
         self.updateDeltaText()
 
         maxAbs = max(abs(startValue),abs(endValue))
-        try:
-            self.k.write(':source:'+self.source+':range {0:.3f}'.format(maxAbs/1000))
-
-        except:
-            self.ui.statusbar.showMessage("Error: Not connected",self.messageDuration);
+        self.sendCmd(':source:'+self.source+':range {0:.3f}'.format(maxAbs/1000))
 
 
     #do what needs to be done when the sweep start value is modified
     def setStart(self):
         startValue = float(self.ui.startSpin.value())
         self.setSourceRange()
-        try:
-            self.k.write('source:'+self.source+' {0:.3f}'.format(startValue/1000))
-        except:
-            self.ui.statusbar.showMessage("Error: Not connected",self.messageDuration);
+        self.sendCmd('source:'+self.source+' {0:.3f}'.format(startValue/1000))
+
 
     #do these things when the user changes the sweep mode (from voltage to current or the reverse)
     def setMode(self):
@@ -802,12 +786,9 @@ class MainWindow(QMainWindow):
             self.source = "voltage"
         else:#sweep in current
             self.source = "current"
+        self.ui.outputCheck.setChecked(self.userWantsOn)
 
-        try:
-            self.k.write(":source:function " + self.source)
-
-        except:
-            self.ui.statusbar.showMessage("Error: Not connected",self.messageDuration)
+        self.sendCmd(":source:function " + self.source)
 
         if self.ui.sourceVRadio.isChecked(): #sweep in voltage
             self.sense = "current"
@@ -816,11 +797,8 @@ class MainWindow(QMainWindow):
             self.ui.startSpin.setRange(-20000,20000)
             self.ui.endSpin.setRange(-20000,20000)
             self.ui.complianceSpin.setRange(1,1000)
-            try:
-                self.k.write(':sense:function "current:dc", "voltage:dc"')
-                self.k.write(":source:"+self.source+":mode fixed") #fixed output mode
-            except:
-                self.ui.statusbar.showMessage("Error: Not connected",self.messageDuration)
+            self.sendCmd(':sense:function "current:dc", "voltage:dc"')
+            self.sendCmd(":source:"+self.source+":mode fixed") #fixed output mode
         else: #sweep in current
             self.sense = "voltage"
             self.sourceUnit = 'A'
@@ -828,17 +806,15 @@ class MainWindow(QMainWindow):
             self.ui.startSpin.setRange(-1000,1000)
             self.ui.endSpin.setRange(-1000,1000)
             self.ui.complianceSpin.setRange(1,20000)
-            try:
-                self.k.write(':sense:function  "voltage:dc","current:dc"')
-                self.k.write(":source:"+self.source+":mode fixed") #fixed output mode
-            except:
-                self.ui.statusbar.showMessage("Error: Not connected",self.messageDuration)
+            self.sendCmd(':sense:function  "voltage:dc","current:dc"')
+            self.sendCmd(":source:"+self.source+":mode fixed") #fixed output mode
         self.ui.startSpin.setSuffix(' m{0:}'.format(self.sourceUnit))
         self.ui.endSpin.setSuffix(' m{0:}'.format(self.sourceUnit))
         self.ui.complianceSpin.setSuffix(' m{0:}'.format(self.complianceUnit))
         self.setStart()
         self.setCompliance()
         self.setSpeed()
+        self.handleModeCombo() #sets i vs v or i,v vs t mode
 
     #do these things just before program termination to ensure the computer and instrument are left in a friendly state
     def closeInstrument(self):
@@ -856,29 +832,32 @@ class MainWindow(QMainWindow):
         
         try:
             self.k.task_queue.put(('clear',()))
-            gpib().clearInterface()
-            self.k.write(':abort')
-            self.k.write(':arm:count 1')
-            self.k.write(":display:enable on")
-            self.k.write(":display:window1:text:state off")
-            self.k.write(":display:window2:text:state off")
-            self.k.write('*rst')
-            self.k.write('*cls')
-            self.k.write(':system:key 23')
+        except:
+            pass
+        gpib().clearInterface()
+        self.sendCmd(':abort')
+        self.sendCmd(':arm:count 1')
+        self.sendCmd(":display:enable on")
+        self.sendCmd(":display:window1:text:state off")
+        self.sendCmd(":display:window2:text:state off")
+        self.sendCmd('*rst')
+        self.sendCmd('*cls')
+        self.sendCmd(':system:key 23')
+        
+        try:
             self.k.__del__() #cleanup
             del self.k #remove
         except:
-            print 'Instrument not properly disconnected'
+            pass
+
 
     def setTerminals(self):
         self.ui.outputCheck.setChecked(False)
-        try:
-            if self.ui.frontRadio.isChecked():
-                self.k.write(":route:terminals front")
-            else:
-                self.k.write(":route:terminals rear")
-        except:
-            self.ui.statusbar.showMessage("Error: Not connected",self.messageDuration)
+        if self.ui.frontRadio.isChecked():
+            self.sendCmd(":route:terminals front")
+        else:
+            self.sendCmd(":route:terminals rear")
+        self.ui.outputCheck.setChecked(self.userWantsOn)
 
     def updateDeltaText(self):
         #tTot = float(self.ui.totalTimeSpin.value())
@@ -888,6 +867,16 @@ class MainWindow(QMainWindow):
         end = float(self.ui.endSpin.value())
         span = end-start
         tTot = dt*nPoints
+        
+        self.sendCmd(':source:sweep:points {0:d}'.format(int(nPoints)))
+        self.sendCmd(":source:delay {0:0.3f}".format(dt))
+        
+        if self.ui.saveModeCombo.currentIndex() == 1:# we're in i vs v mode
+            self.sendCmd(':trigger:count {0:d}'.format(int(nPoints)))
+        
+        self.sendCmd(':source:'+self.source+':start {0:.3f}'.format(start/1000))
+        self.sendCmd(':source:'+self.source+':stop {0:.3f}'.format(end/1000))
+        #self.sendCmd(':source:'+self.source+':step {0:.3f}'.format(step))
         
         if tTot >= 60:
             timeText = QString(u'tot={0:.1f} min'.format(tTot/60))
@@ -900,32 +889,21 @@ class MainWindow(QMainWindow):
         else:
             stepText = QString(u'Δ={0:.0f} m{1:}'.format(span/(nPoints-1),self.sourceUnit))
         self.ui.deltaStep.setText(stepText)
-        
-
-    def totalPointsCall(self,newValue):        
-        #ensure that total time is not too short as total number of data points goes up
-        #tTotMin = float(newValue)*0.02
-        #if tTotMin < 2:
-        #    tTotMin = 2
-        #tTotMin = math.ceil(tTotMin)
-        #self.ui.totalTimeSpin.setMinimum(tTotMin)
-
-
-        self.updateDeltaText()
-
-    def totalTimeCall(self,newValue):        
-        self.updateDeltaText()   
 
     def setWires(self):
         self.ui.outputCheck.setChecked(False)
+        if self.ui.twowireRadio.isChecked():
+            self.sendCmd(":system:rsense OFF")
+        else:
+            self.sendCmd(":system:rsense ON")
+        self.ui.outputCheck.setChecked(self.userWantsOn)
+        
+    def sendCmd(self,cmdString):
         try:
-            if self.ui.twowireRadio.isChecked():
-                self.k.write(":system:rsense OFF")
-            else:
-                self.k.write(":system:rsense ON")
+            self.k.write(cmdString)
+            #self.k.write(":system:key 23") #go into local mode for live display update AFTER EVERY COMMAND!
         except:
-            self.ui.statusbar.showMessage("Error: Not connected",self.messageDuration);
-        self.setOutput()  
+            self.ui.statusbar.showMessage("Command failed",self.messageDuration);
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

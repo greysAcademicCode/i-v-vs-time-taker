@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>621</width>
-    <height>500</height>
+    <width>622</width>
+    <height>515</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -64,7 +64,7 @@
     <property name="geometry">
      <rect>
       <x>520</x>
-      <y>420</y>
+      <y>430</y>
       <width>90</width>
       <height>30</height>
      </rect>
@@ -672,7 +672,7 @@
     <property name="geometry">
      <rect>
       <x>10</x>
-      <y>420</y>
+      <y>430</y>
       <width>510</width>
       <height>30</height>
      </rect>
@@ -689,12 +689,12 @@
      <rect>
       <x>10</x>
       <y>230</y>
-      <width>291</width>
-      <height>61</height>
+      <width>390</width>
+      <height>70</height>
      </rect>
     </property>
     <property name="title">
-     <string>Sweep Continually</string>
+     <string>Consecutive Sweeps</string>
     </property>
     <property name="checkable">
      <bool>true</bool>
@@ -706,9 +706,9 @@
      <property name="geometry">
       <rect>
        <x>10</x>
-       <y>20</y>
-       <width>151</width>
-       <height>30</height>
+       <y>10</y>
+       <width>120</width>
+       <height>20</height>
       </rect>
      </property>
      <property name="text">
@@ -718,10 +718,10 @@
     <widget class="QDoubleSpinBox" name="scanRecoverySpin">
      <property name="geometry">
       <rect>
-       <x>180</x>
-       <y>20</y>
-       <width>101</width>
-       <height>30</height>
+       <x>130</x>
+       <y>10</y>
+       <width>81</width>
+       <height>20</height>
       </rect>
      </property>
      <property name="suffix">
@@ -731,14 +731,105 @@
       <double>1000000000.000000000000000</double>
      </property>
     </widget>
+    <widget class="QLabel" name="label_5">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>40</y>
+       <width>120</width>
+       <height>20</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>Number of Sweeps:</string>
+     </property>
+    </widget>
+    <widget class="QSpinBox" name="nSweepSpin">
+     <property name="geometry">
+      <rect>
+       <x>130</x>
+       <y>40</y>
+       <width>81</width>
+       <height>20</height>
+      </rect>
+     </property>
+     <property name="maximum">
+      <number>99999</number>
+     </property>
+     <property name="value">
+      <number>100</number>
+     </property>
+    </widget>
+    <widget class="QLabel" name="label_11">
+     <property name="geometry">
+      <rect>
+       <x>220</x>
+       <y>10</y>
+       <width>111</width>
+       <height>20</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>Hold Between Scans:</string>
+     </property>
+    </widget>
+    <widget class="QComboBox" name="comboBox">
+     <property name="enabled">
+      <bool>false</bool>
+     </property>
+     <property name="geometry">
+      <rect>
+       <x>330</x>
+       <y>10</y>
+       <width>50</width>
+       <height>22</height>
+      </rect>
+     </property>
+     <item>
+      <property name="text">
+       <string>L=∞</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>Voc</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>Jsc</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>Mppt</string>
+      </property>
+     </item>
+    </widget>
+    <widget class="QCheckBox" name="checkBox">
+     <property name="enabled">
+      <bool>false</bool>
+     </property>
+     <property name="geometry">
+      <rect>
+       <x>220</x>
+       <y>40</y>
+       <width>170</width>
+       <height>17</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>Toggle Shutter Between Scans</string>
+     </property>
+    </widget>
    </widget>
    <widget class="QGroupBox" name="groupBox">
     <property name="geometry">
      <rect>
-      <x>310</x>
+      <x>410</x>
       <y>230</y>
-      <width>300</width>
-      <height>60</height>
+      <width>200</width>
+      <height>70</height>
      </rect>
     </property>
     <property name="title">
@@ -750,8 +841,8 @@
      </property>
      <property name="geometry">
       <rect>
-       <x>200</x>
-       <y>20</y>
+       <x>100</x>
+       <y>30</y>
        <width>91</width>
        <height>30</height>
       </rect>
@@ -763,8 +854,8 @@
     <widget class="QCheckBox" name="displayBlankCheck">
      <property name="geometry">
       <rect>
-       <x>100</x>
-       <y>40</y>
+       <x>10</x>
+       <y>50</y>
        <width>91</width>
        <height>20</height>
       </rect>
@@ -780,7 +871,7 @@
      <property name="geometry">
       <rect>
        <x>10</x>
-       <y>40</y>
+       <y>30</y>
        <width>91</width>
        <height>20</height>
       </rect>
@@ -796,7 +887,7 @@
      <property name="geometry">
       <rect>
        <x>10</x>
-       <y>20</y>
+       <y>10</y>
        <width>91</width>
        <height>20</height>
       </rect>
@@ -839,7 +930,7 @@
     <property name="geometry">
      <rect>
       <x>10</x>
-      <y>290</y>
+      <y>300</y>
       <width>600</width>
       <height>60</height>
      </rect>
@@ -878,7 +969,7 @@
     <property name="geometry">
      <rect>
       <x>10</x>
-      <y>350</y>
+      <y>360</y>
       <width>601</width>
       <height>60</height>
      </rect>
@@ -903,7 +994,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>621</width>
+     <width>622</width>
      <height>21</height>
     </rect>
    </property>
