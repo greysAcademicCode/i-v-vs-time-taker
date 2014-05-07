@@ -660,7 +660,7 @@ class MainWindow(QMainWindow):
 
         try:
             #now that the user has selected an address for the keithley, let's connect to it. we'll use the thread safe version of the visa/gpib interface since we have multiple threads here
-            self.k = gpib(instrumentAddress,useQueues=True)
+            self.k = gpib(instrumentAddress,useQueues=True,timeout=None)
 
             #self.k.task_queue.put(('clear',()))
             #self.sendCmd(':abort')
