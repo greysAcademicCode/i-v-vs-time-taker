@@ -290,14 +290,23 @@ class MainWindow(QMainWindow):
             self.sendCmd(":source:delay 0")
             self.sendCmd(':source:'+self.source+':mode fixed')
             self.sendCmd(':trigger:count 1')
+            #fast response and no auto zeroing in i,v vs t mode
+            self.ui.speedCombo.setCurrentIndex(0)
+            self.ui.zeroCheck.setChecked(False)
         else: #traditional i vs v mode
+            #TODO: figure out why this mode is double scanning for 70 points 1 sec delay
             self.ui.totalPointsSpin.setMaximum(2500) #standard sweeps can be at most 2500 points long (keithley limitation)
             self.ui.totalPointsSpin.setMinimum(2)
+            self.ui.speedCombo.setCurrentIndex(3)#go slow here
+            
             self.sendCmd(":source:delay {0:0.3f}".format(dt))
             self.sendCmd(':source:'+self.source+':mode sweep')
             
             nPoints = float(self.ui.totalPointsSpin.value())
             self.sendCmd(':trigger:count {0:d}'.format(int(nPoints)))
+            #high accuracy and auto zeroing in i vs v mode
+            self.ui.speedCombo.setCurrentIndex(3)
+            self.ui.zeroCheck.setChecked(True)
             
         
         
@@ -868,11 +877,10 @@ class MainWindow(QMainWindow):
         span = end-start
         tTot = dt*nPoints
         
-        self.sendCmd(':source:sweep:points {0:d}'.format(int(nPoints)))
-        self.sendCmd(":source:delay {0:0.3f}".format(dt))
-        
         if self.ui.saveModeCombo.currentIndex() == 1:# we're in i vs v mode
             self.sendCmd(':trigger:count {0:d}'.format(int(nPoints)))
+            self.sendCmd(":source:delay {0:0.3f}".format(dt))
+            self.sendCmd(':source:sweep:points {0:d}'.format(int(nPoints)))
         
         self.sendCmd(':source:'+self.source+':start {0:.3f}'.format(start/1000))
         self.sendCmd(':source:'+self.source+':stop {0:.3f}'.format(end/1000))
