@@ -1,7 +1,13 @@
 i-v-vs-time-taker
 =================
 
-a gui for controlling a keithley 2400 sourcemeter, useful for investigating transient events in I-V sweeps of solar cells
+This project contains a graphical user interface for controlling a keithley 2400 sourcemeter, useful for investigating transient events in I-V sweeps of solar cells. This tool can produce data files that contain current and voltage measurements as a function of time sampled at ~200Hz (as fast as I can currently get the Keithley to go) during an I-V sweep measaurement. Such 'high speed' data sampling can be used to intelligently advance the sweep once a steady state has been reached at each sweep point. This prevents over-estimation of the current in solar cells with large RC constants such as certian perovskite cell architectures.
+
+Two other projects accompany this project:
+- batch-i-v-analysis
+ - a GUI that can plot the current and voltage verses time data files generated here. Also does fully automated curve fitting and analysis on regular i vs v data sets
+- hyst-analysis
+ - a MATLAB script that does much more in depth analysis of the current and voltage verses time data files generated here
 
 ### Files here
 ---
