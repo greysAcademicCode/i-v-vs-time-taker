@@ -1,12 +1,12 @@
 i-v-vs-time-taker
 =================
 
-a gui for controlling a keithley 2400 sourcemeter
+a gui for controlling a keithley 2400 sourcemeter, useful for investigating transient events in I-V sweeps of solar cells
 
 ### Files here
 ---
 - **i-v-vs-time-taker.py**
- - Main python script. Run this to use the tool. You can edit the code in this file directly using your favorite editor.
+ - Main python script. Run this to use the tool. You can edit the code in this file directly using your favorite python editor.
 - **ivSweeper.ui**
  - Contains user interface design for main window, edit with Qt Designer (I used version 4.8.5)
 - **ivSweeperUI.py**
