@@ -6,7 +6,7 @@ This project contains a graphical user interface for controlling a keithley 2400
 Two other projects accompany this project:
 - batch-i-v-analysis
  - a GUI that can plot the current and voltage verses time data files generated here. Also does fully automated curve fitting and analysis on regular i vs v data sets
-- hyst-analysis
+- hystAnalysis
  - a MATLAB script that does much more in depth analysis of the current and voltage verses time data files generated here
 
 ### Files here
