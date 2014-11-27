@@ -31,12 +31,14 @@ see the pyvisa documentation on how to interact with a visa object
 @author: grey
 """
 
-import visa
+import visa # needs v1.5
+import pyvisa
 from multiprocessing import Process, Queue
 
 class gpib:
+    visaLib = visa.VisaLibrary()
     delay = 0#command transmit delay
-    values_format = visa.single | visa.big_endian #this is now a keithley 2400 does binary transfers
+    values_format = pyvisa.highlevel.single | pyvisa.highlevel.big_endian #this is now a keithley 2400 does binary transfers
     chunk_size = 102400 #need a slightly bigger transfer buffer than default to be able to transfer a full sample buffer (2500 samples) from a keithley 2400 in one shot
     def __init__(self,locationString=None,timeout=30,useQueues=False):
         self.locationString = locationString
@@ -95,7 +97,7 @@ class gpib:
         visa.Gpib()._vpp43.gpib_control_ren(mode)
 
     def clearInterface(self):
-        visa.Gpib().send_ifc()
+        self.visaLib.gpib_send_ifc()
 
     def findInstruments(self):
         return visa.get_instruments_list()    

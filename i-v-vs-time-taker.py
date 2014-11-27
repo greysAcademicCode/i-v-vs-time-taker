@@ -843,7 +843,8 @@ class MainWindow(QMainWindow):
             self.k.task_queue.put(('clear',()))
         except:
             pass
-        gpib().clearInterface()
+        #TODO: reenable this
+        #gpib().clearInterface()
         self.sendCmd(':abort')
         self.sendCmd(':arm:count 1')
         self.sendCmd(":display:enable on")
