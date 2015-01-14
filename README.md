@@ -20,7 +20,7 @@ Two other projects accompany this project:
 `pyuic4 -o ivSweeperUI.py ivSweeper.ui`
 - **gpib.py**
  - Contains thread-safe gpib interface for communication with the sourcemeter
- - 
+ 
  ### If you find this code useful...
 Please cite our work:  
 [DOI: 10.1039/C4EE02465F](http://pubs.rsc.org/en/Content/ArticleLanding/2014/EE/C4EE02465F)  
