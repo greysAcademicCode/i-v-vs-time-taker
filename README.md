@@ -9,6 +9,12 @@ Two other projects accompany this project:
 - hystAnalysis
  - a MATLAB script that does much more in depth analysis of the current and voltage verses time data files generated here
 
+### If you find this code useful...
+---
+Please cite our work:  
+[DOI: 10.1039/C4EE02465F](http://pubs.rsc.org/en/Content/ArticleLanding/2014/EE/C4EE02465F)  
+and shoot me an email. grey [AT] christoforo [DOT] net
+
 ### Files here
 ---
 - **i-v-vs-time-taker.py**
@@ -20,9 +26,3 @@ Two other projects accompany this project:
 `pyuic4 -o ivSweeperUI.py ivSweeper.ui`
 - **gpib.py**
  - Contains thread-safe gpib interface for communication with the sourcemeter
-
-### If you find this code useful...
----
-Please cite our work:  
-[DOI: 10.1039/C4EE02465F](http://pubs.rsc.org/en/Content/ArticleLanding/2014/EE/C4EE02465F)  
-and shoot me an email. grey [AT] christoforo [DOT] net
