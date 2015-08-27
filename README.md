@@ -29,7 +29,7 @@ and shoot me an email. grey [AT] christoforo [DOT] net
 
 ###  Setup & Initial run
 ---
-For Arch Linux:
+For Arch Linux:  
 ```
 sudo pacman -S python2-pyqt4 python2-scipy python2-matplotlib git
 yaourt -S python2-pyvisa
@@ -38,3 +38,6 @@ cd i-v-vs-time-taker
 pyuic4 -o ivSweeperUI.py ivSweeper.ui
 python2 i-v-vs-time-taker.py
 ```
+For Windows:  
+1. Download the latest [WinPython 2.7](http://winpython.github.io/#releases) and extract it somewhere
+2. 
