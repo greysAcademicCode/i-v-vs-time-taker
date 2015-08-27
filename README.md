@@ -39,5 +39,14 @@ pyuic4 -o ivSweeperUI.py ivSweeper.ui
 python2 i-v-vs-time-taker.py
 ```
 For Windows:  
-1. Download the latest [WinPython 2.7](http://winpython.github.io/#releases) and extract it somewhere
-2. 
+
+1. Download the latest [WinPython 2.7](http://winpython.github.io/#releases) and extract it somewhere. You should end up with a folder named something like `WinPython-64bit-2.7.10.2`  
+1. Download a [snapshot of this project](https://github.com/greysAcademicCode/i-v-vs-time-taker/archive/master.zip) and save it in the WinPython folder from the previous step and extract it there. You should now have a folder called `i-v-vs-time-taker-master` inside your WinPython folder  
+1. Run `WinPython Command Prompt.exe` found in your WinPython folder and in the terminal that pops up execute the following commands:  
+
+ ```
+ cd ..
+ cd i-v-vs-time-taker-master
+ pyuic4 -o ivSweeperUI.py ivSweeper.ui
+ python i-v-vs-time-taker.py
+```
