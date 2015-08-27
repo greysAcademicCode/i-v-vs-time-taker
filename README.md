@@ -9,6 +9,9 @@ Two other projects accompany this project:
 - hystAnalysis
  - a MATLAB script that does much more in depth analysis of the current and voltage verses time data files generated here
 
+### The interface
+![interface](https://raw.githubusercontent.com/greysAcademicCode/i-v-vs-time-taker/master/commandWindow.png)
+
 ### If you find this code useful...
 ---
 Please cite our work:  
