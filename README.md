@@ -26,3 +26,15 @@ and shoot me an email. grey [AT] christoforo [DOT] net
 `pyuic4 -o ivSweeperUI.py ivSweeper.ui`
 - **gpib.py**
  - Contains thread-safe gpib interface for communication with the sourcemeter
+
+###  Setup & Initial run
+---
+For Arch Linux:
+```
+sudo pacman -S python2-pyqt4 python2-scipy python2-matplotlib git
+yaourt -S python2-pyvisa
+git clone https://github.com/greysAcademicCode/i-v-vs-time-taker.git
+cd i-v-vs-time-taker
+pyuic4 -o ivSweeperUI.py ivSweeper.ui
+python2 i-v-vs-time-taker.py
+```
