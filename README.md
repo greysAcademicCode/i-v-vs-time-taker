@@ -48,6 +48,7 @@ For Windows:
 1. Run `WinPython Command Prompt.exe` found in your WinPython folder and in the terminal that pops up execute the following commands:  
 
  ```
+ pip install pyvisa==1.5
  cd ..
  cd i-v-vs-time-taker-master
  pyuic4 -o ivSweeperUI.py ivSweeper.ui
