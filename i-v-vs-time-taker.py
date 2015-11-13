@@ -685,7 +685,7 @@ class MainWindow(QMainWindow):
             #silly check here, if the instrument returned an identification string larger than 30 characters
             #assume it's okay to perform a sweep
             modelString = "MODEL 2400"
-            firmwareString = "C32"
+            firmwareString = "C33"
             if ident.__contains__(modelString):
                 if ident.__contains__(firmwareString):
                     self.k.task_queue.put(('ask',(':system:mep:state?',)))
