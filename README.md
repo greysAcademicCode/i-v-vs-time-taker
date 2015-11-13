@@ -32,6 +32,8 @@ and shoot me an email. grey [AT] christoforo [DOT] net
 
 ###  Setup & Initial run
 ---
+Firstly, the firmware on your 2400 sourcemeter must be up-to-date. This project expects version C33. [Here is a link](http://www.tek.com/source-measure-units/2400-software/2400-series-firmware-revision-c33) to that firmware in case your 2400 is out of date.
+
 For Arch Linux:  
 ```
 sudo pacman -S python2-pyqt4 python2-scipy python2-matplotlib git
