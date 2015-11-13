@@ -682,8 +682,7 @@ class MainWindow(QMainWindow):
             except:
                 ident = []
 
-            #silly check here, if the instrument returned an identification string larger than 30 characters
-            #assume it's okay to perform a sweep
+            # let's be sure the firmware and model are what we expect (and what's tested to work)
             modelString = "MODEL 2400"
             firmwareString = "C33"
             if ident.__contains__(modelString):
