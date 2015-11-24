@@ -34,7 +34,7 @@ and shoot me an email. grey [AT] christoforo [DOT] net
 ---
 Firstly, the firmware on your 2400 sourcemeter must be up-to-date. This project expects version C33. [Here is a link](http://www.tek.com/source-measure-units/2400-software/2400-series-firmware-revision-c33) to that firmware in case your 2400 is out of date.
 
-For Arch Linux:  
+#### For Arch Linux:  
 ```
 sudo pacman -S python2-pyqt4 python2-scipy python2-matplotlib git
 yaourt -S python2-pyvisa
@@ -43,12 +43,11 @@ cd i-v-vs-time-taker
 pyuic4 -o ivSweeperUI.py ivSweeper.ui
 python2 i-v-vs-time-taker.py
 ```
-For Windows:  
+#### For Windows:  
 
 1. Download the latest [WinPython 2.7](http://winpython.github.io/#releases) and run that unpacker execuitable. You should end up with a folder named something like `WinPython-64bit-2.7.10.2` in your location of choice. 
 1. Download a [snapshot of this project](https://github.com/greysAcademicCode/i-v-vs-time-taker/archive/master.zip) and save it in the WinPython folder from the previous step and extract it there. You should now have a folder called `i-v-vs-time-taker-master` inside your WinPython folder  
 1. Run `WinPython Command Prompt.exe` found in your WinPython folder and in the terminal that pops up execute the following commands:  
-
  ```
  pip install pyvisa==1.5
  cd ..
