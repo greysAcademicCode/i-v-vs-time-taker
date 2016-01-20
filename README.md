@@ -15,7 +15,7 @@ Two other projects accompany this project:
 ### If you find this code useful...
 ---
 Please cite our work:  
-[DOI: 10.1039/C4EE02465F](http://pubs.rsc.org/en/Content/ArticleLanding/2014/EE/C4EE02465F)  
+[DOI: 10.3390/photonics2041101](http://www.mdpi.com/2304-6732/2/4/1101/htm)  
 and shoot me an email. grey [AT] christoforo [DOT] net
 
 ### Files here
