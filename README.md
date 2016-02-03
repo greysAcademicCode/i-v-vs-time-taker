@@ -51,7 +51,7 @@ cd i-v-vs-time-taker-master
 pyuic4 -o ivSweeperUI.py ivSweeper.ui
 python i-v-vs-time-taker.py
 ```
-   You should now be presented with the (graphical user interface)[https://raw.githubusercontent.com/greysAcademicCode/i-v-vs-time-taker/master/commandWindow.png]
+   You should now be presented with the [graphical user interface](https://raw.githubusercontent.com/greysAcademicCode/i-v-vs-time-taker/master/commandWindow.png)
 1. Under the "Instrument Selection" section, choose "(Re)Scan for Instruments". The dropdown list should now be populated with all the instruments connected to your machine.
 1. Choose your Keithley 2400 from the Instrument Selection dropdown list
   * You should immediately see the message "Connected to KIETHLEY..." flash up briefly in the bottom of the window and your sourcemeter will be reset to its factory default settings.
