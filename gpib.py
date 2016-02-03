@@ -30,7 +30,9 @@ see the pyvisa documentation on how to interact with a visa object
 
 @author: grey
 """
-
+from multiprocessing import freeze_support
+freeze_support()
+	
 import visa
 from multiprocessing import Process, Queue
 

@@ -5,6 +5,8 @@ It allows for high frequency (~150Hz at present) sampling during I-V sourcemeasu
 @author: grey
 """
 #TODO: change to user input of voltage dwell time
+from multiprocessing import freeze_support
+freeze_support()
 import os, sys, inspect
 
 try:
