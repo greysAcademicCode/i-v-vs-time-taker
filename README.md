@@ -32,27 +32,39 @@ and shoot me an email. grey [AT] christoforo [DOT] net
 
 ###  Setup & Initial run
 ---
-Firstly, the firmware on your 2400 sourcemeter must be up-to-date. This project expects version C33. [Here is a link](http://www.tek.com/source-measure-units/2400-software/2400-series-firmware-revision-c33) to that firmware in case your 2400 is out of date.
+Firstly, the firmware on your 2400 sourcemeter must be up-to-date. This project expects version C33. [Here is a link](http://www.tek.com/source-measure-units/2400-software/2400-series-firmware-revision-c33) to that firmware in case your 2400 is out of date. You might also need the [firmware flashing utility for your sourcemeter](http://www.tek.com/software/FLASH-WIZARD/C12). 
 
-#### For Arch Linux:  
-```
-sudo pacman -S python2-pyqt4 python2-scipy python2-matplotlib git
-yaourt -S python2-pyvisa
-git clone https://github.com/greysAcademicCode/i-v-vs-time-taker.git
-cd i-v-vs-time-taker
-pyuic4 -o ivSweeperUI.py ivSweeper.ui
-python2 i-v-vs-time-taker.py
-```
+Before you begin, you should verify communication with your sourcementer: install National Intstruments' MAX and software and use the "Communicate with Instrument" button it to send an `*idn?` query to your sourcementer. It should return exactly `KEITHLEY INSTRUMENTS INC.,MODEL 2400,1120648,C33   Mar 31 2015 09:32:39/A02  /K/J` before you try to use this software.
+
 #### For Windows:  
 
-1. Download the latest [WinPython 2.7](http://winpython.github.io/#releases) and run that unpacker execuitable. You should end up with a folder named something like `WinPython-64bit-2.7.10.2` in your location of choice. 
+1. Download the latest [WinPython 2.7](http://winpython.github.io/#releases) and run that unpacker execuitable. You should end up with a folder named something like `WinPython-64bit-2.7.10.3` in your location of choice. 
 1. Download a [snapshot of this project](https://github.com/greysAcademicCode/i-v-vs-time-taker/archive/master.zip) and save it in the WinPython folder from the previous step and extract it there. You should now have a folder called `i-v-vs-time-taker-master` inside your WinPython folder  
-1. Run `WinPython Command Prompt.exe` found in your WinPython folder and in the terminal that pops up execute the following commands:  
+1. Run `WinPython Command Prompt.exe` found in your WinPython folder and in the terminal that pops up execute the following commands: 
 
- ```
- pip install pyvisa==1.4
- cd ..
- cd i-v-vs-time-taker-master
- pyuic4 -o ivSweeperUI.py ivSweeper.ui
- python i-v-vs-time-taker.py
+
+   ```bash
+pip install pyvisa==1.4
+cd ..
+cd i-v-vs-time-taker-master
+pyuic4 -o ivSweeperUI.py ivSweeper.ui
+python i-v-vs-time-taker.py
 ```
+   You should now be presented with the (graphical user interface)[https://raw.githubusercontent.com/greysAcademicCode/i-v-vs-time-taker/master/commandWindow.png]
+1. Under the "Instrument Selection" section, choose "(Re)Scan for Instruments". The dropdown list should now be populated with all the instruments connected to your machine.
+1. Choose your Keithley 2400 from the Instrument Selection dropdown list
+  * You should immediately see the message "Connected to KIETHLEY..." flash up briefly in the bottom of the window and your sourcemeter will be reset to its factory default settings.
+1. Click the "Browse" button in the "Output Directory" section and pic a folder where your data files will be created.
+1. Type in an output file name in the box there. This will be used as a prefix for the file name to be created.
+1. Change "Speed:" to "Fast"
+  * The Keithley defaults to High Accuracy mode when it's reset. This can cause the default 100 point I-V scan to take a while.
+1. Uncheck the "Auto Zero" tickbox
+1. Now click the "Start Sweep" button
+  * The I-V sweep should take about 2 seconds to complete (if not, wait for it to finish before you do anything because the "Abort Sweep" button doesn't work too well in "I vs V" mode)
+  * A two column (current, voltage) data file (in .csv format) should now be in your output directory, with each of the 100 rows corresponding to one point in the 100 point I-V sweep
+1. Change Mode: to I,V vs t
+1. Now click the "Start Sweep" button
+  * The keithley will now perform the exact same I-V sweep, except it will atempt to collect as many data points as possible during the sweep
+  * The resulting output file contains one row for each data point collected, although there will be many more rows this time. There will be four columns: voltage, current, a time stamp and a status number.
+
+The maximum powerpoint tracker "Dwell @ Max Power" is very experimental and lightly tested
