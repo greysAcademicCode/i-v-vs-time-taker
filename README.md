@@ -51,11 +51,11 @@ cd i-v-vs-time-taker-master
 pyuic4 -o ivSweeperUI.py ivSweeper.ui
 python i-v-vs-time-taker.py
 ```
-   You should now be presented with the (graphical user interface)[https://raw.githubusercontent.com/greysAcademicCode/i-v-vs-time-taker/master/commandWindow.png]
+   You should now be presented with the [graphical user interface](https://raw.githubusercontent.com/greysAcademicCode/i-v-vs-time-taker/master/commandWindow.png)
 1. Under the "Instrument Selection" section, choose "(Re)Scan for Instruments". The dropdown list should now be populated with all the instruments connected to your machine.
 1. Choose your Keithley 2400 from the Instrument Selection dropdown list
   * You should immediately see the message "Connected to KIETHLEY..." flash up briefly in the bottom of the window and your sourcemeter will be reset to its factory default settings.
-1. Click the "Browse" button in the "Output Directory" section and pic a folder where your data files will be created.
+1. Click the "Browse" button in the "Output Directory" section and choose a folder where your data files will be created.
 1. Type in an output file name in the box there. This will be used as a prefix for the file name to be created.
 1. Change "Speed:" to "Fast"
   * The Keithley defaults to High Accuracy mode when it's reset. This can cause the default 100 point I-V scan to take a while.
