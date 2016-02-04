@@ -2,7 +2,7 @@
 """
 This is a program to control a keithley 2400 sourcemeter.
 It allows for high frequency (~150Hz at present) sampling during I-V sourcemeasurements to gain insight into some device dynamics
-@author: grey
+@author: Grey Christoforo <first name [at] last name [dot] net>
 """
 #TODO: change to user input of voltage dwell time
 from multiprocessing import freeze_support
