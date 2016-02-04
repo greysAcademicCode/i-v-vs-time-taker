@@ -13,7 +13,7 @@ icon="icon.ico"
 )
 
 setup(name='i-v-vs-time-taker',
-      version = '0.4',
+      version = '0.5',
       description = 'Helps capture transients during i-v curves',
       options = {"build_exe":{"packages":packages, "includes":["numpy", "scipy", 'scipy.optimize','scipy.optimize.minpack2', "scipy.integrate" ,"scipy.sparse", "scipy.sparse.csgraph._validation"], "excludes":['tcl','tkinter','collections._weakref','collections.sys','tk', '_tkagg', '_gtkagg', '_gtk', 'tcl']}},
       executables = [exe])
