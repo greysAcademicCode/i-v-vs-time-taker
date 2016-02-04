@@ -28,7 +28,7 @@ print k.v.ask(':read?')
 
 see the pyvisa documentation on how to interact with a visa object
 
-@author: grey
+@author: Grey Christoforo <first name [at] last name [dot] net>
 """
 from multiprocessing import freeze_support
 freeze_support()
