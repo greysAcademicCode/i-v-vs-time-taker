@@ -33,7 +33,7 @@ I'd be super happy to accept pull requests/bug fixes (because I know tere are a 
 
 ###  Setup & Initial run
 ---
-Firstly, the firmware on your 2400 sourcemeter must be up-to-date. This project expects version C33. [Here is a link](http://www.tek.com/source-measure-units/2400-software/2400-series-firmware-revision-c33) to that firmware in case your 2400 is out of date. You might also need the [firmware flashing utility for your sourcemeter](http://www.tek.com/software/FLASH-WIZARD/C12). 
+Firstly, the firmware on your 2400 sourcemeter must be up-to-date. This project expects and requires version C33. [Here is a link](http://www.tek.com/source-measure-units/2400-software/2400-series-firmware-revision-c33) to that firmware in case your 2400 is out of date. You might also need the [firmware flashing utility for your sourcemeter](http://www.tek.com/software/FLASH-WIZARD/C12). 
 
 Before you begin, you should verify communication with your sourcementer: install National Intstruments' MAX and software and use the "Communicate with Instrument" button it to send an `*idn?` query to your sourcementer. It should return exactly `KEITHLEY INSTRUMENTS INC.,MODEL 2400,1120648,C33   Mar 31 2015 09:32:39/A02  /K/J` before you try to use this software.
 
