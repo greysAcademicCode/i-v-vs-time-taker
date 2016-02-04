@@ -38,6 +38,7 @@ Firstly, the firmware on your 2400 sourcemeter must be up-to-date. This project 
 Before you begin, you should verify communication with your sourcementer: install National Intstruments' MAX and software and use the "Communicate with Instrument" button it to send an `*idn?` query to your sourcementer. It should return exactly `KEITHLEY INSTRUMENTS INC.,MODEL 2400,1120648,C33   Mar 31 2015 09:32:39/A02  /K/J` before you try to use this software.
 
 #### For Windows:  
+NOTE: It may be possible to skip steps 1-3 below by downloading and extracting the latest release exe .zip [from here](https://github.com/greysAcademicCode/i-v-vs-time-taker/releases/latest) and double clicking on the .exe in there. If any of this fails with the pre-packaged exe then it's probably best to start again from step 1 here.
 
 1. Download the latest [WinPython 2.7](http://winpython.github.io/#releases) and run that unpacker execuitable. You should end up with a folder named something like `WinPython-64bit-2.7.10.3` in your location of choice. 
 1. Download a [snapshot of this project](https://github.com/greysAcademicCode/i-v-vs-time-taker/archive/master.zip) and save it in the WinPython folder from the previous step and extract it there. You should now have a folder called `i-v-vs-time-taker-master` inside your WinPython folder  
