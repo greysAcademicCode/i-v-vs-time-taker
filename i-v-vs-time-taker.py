@@ -705,7 +705,7 @@ class MainWindow(QMainWindow):
                         msgBox = QMessageBox()
                         msgBox.setWindowTitle("SCPI mode detected. Please sqitch to 488.1 mode.")
                         message488 = \
-                            "Perform the following steps to select the 488.1 protocol:\n" + \
+                            "Perform the following steps using the buttons on your sourcemeter to select the 488.1 protocol:\n" + \
                             "1. Press MENU to display the MAIN MENU.\n" + \
                             "2. Place the cursor on COMMUNICATION and press ENTER to display the COMMUNICATIONS SETUP menu.\n" + \
                             "3. Place the cursor on GPIB and press ENTER to display the present GPIB address.\n" + \
