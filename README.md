@@ -43,15 +43,14 @@ NOTE: It may be possible to skip steps 1-3 below by downloading and extracting t
 1. Download the latest [WinPython 2.7](http://winpython.github.io/#releases) and run that unpacker execuitable. You should end up with a folder named something like `WinPython-64bit-2.7.10.3` in your location of choice. 
 1. Download a [snapshot of this project](https://github.com/greysAcademicCode/i-v-vs-time-taker/archive/master.zip) and save it in the WinPython folder from the previous step and extract it there. You should now have a folder called `i-v-vs-time-taker-master` inside your WinPython folder  
 1. Run `WinPython Command Prompt.exe` found in your WinPython folder and in the terminal that pops up execute the following commands: 
-
-
-   ```bash
+```bash
 pip install pyvisa==1.4
 cd ..
 cd i-v-vs-time-taker-master
 pyuic4 -o ivSweeperUI.py ivSweeper.ui
 python i-v-vs-time-taker.py
 ```
+
    You should now be presented with the [graphical user interface](https://raw.githubusercontent.com/greysAcademicCode/i-v-vs-time-taker/master/commandWindow.png)
 1. Under the "Instrument Selection" section, choose "(Re)Scan for Instruments". The dropdown list should now be populated with all the instruments connected to your machine.
 1. Choose your Keithley 2400 from the Instrument Selection dropdown list
